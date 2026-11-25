@@ -369,9 +369,13 @@ function openItem(it) {
 let vol = 50, vidToken = 0;
 try { const v = localStorage.getItem("stw_vol"); if (v !== null) vol = +v; } catch (e) {}
 const vidCache = {};
+let ggMap = {};
+fetch("data/videos.json").then(r => r.json()).then(d => { ggMap = d || {}; }).catch(() => {});
 function loadVideo(id) {
   const my = ++vidToken;
-  const get = vidCache[id] ? Promise.resolve(vidCache[id]) : fetch(API + "/api/video?id=" + encodeURIComponent(id)).then(r => r.json()).then(d => (vidCache[id] = d)).catch(() => null);
+  const n = ggMap[id];
+  const viaMap = n ? { video: ["https://fnggcdn.com/items/" + n + "/video.mp4?1", "https://fnggcdn.com/items/" + n + "/video-sd.mp4"], source: "https://fortnite.gg/cosmetics?id=" + n } : null;
+  const get = viaMap ? Promise.resolve(viaMap) : vidCache[id] ? Promise.resolve(vidCache[id]) : fetch(API + "/api/video?id=" + encodeURIComponent(id)).then(r => r.json()).then(d => (vidCache[id] = d)).catch(() => null);
   get.then(d => {
     if (my !== vidToken || !d || !d.video || !$("sheet").classList.contains("on")) return;
     const big = $("pane").querySelector(".big"); if (!big) return;
