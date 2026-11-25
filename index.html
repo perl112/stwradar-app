@@ -155,6 +155,9 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 .pill{border-radius:9px;padding:4px 9px;font-size:12.5px;font-weight:800;background:#ffffff10;color:var(--ink)}
 .pill.g{background:#ffd166;color:#3a2600}
 .pk-wrap{padding:0 16px}
+.pk-old{display:flex;flex-wrap:wrap;gap:8px}
+.pk-old .pk{flex:1 1 100%}
+.pkl{border:1px solid var(--line);background:#ffffff08;color:var(--ink);border-radius:12px;padding:9px 12px;font:600 13.5px Manrope,sans-serif;cursor:pointer;text-align:left}
 @media(max-width:380px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 12px}.sec{margin-inline:12px}.tab{font-size:13px}}
 </style>
 </head>
@@ -316,7 +319,7 @@ function render() {
     if (!packs) { list.innerHTML = '<div class="pk-wrap">' + '<div class="sk" style="aspect-ratio:3/1;margin-bottom:12px"></div>'.repeat(3) + '</div>'; return; }
     const on = packs.filter(p => p.active !== false), off = packs.filter(p => p.active === false);
     list.innerHTML = (on.length ? sec("Сейчас продаются", on.length, "💳", "за реальные деньги, цены примерные") + '<div class="pk-wrap">' + on.map(packCard).join("") + '</div>' : "") +
-      (off.length ? sec("Больше не продаются", off.length, "🗄", "за что давали и когда были") + '<div class="pk-wrap">' + off.map(packCard).join("") + '</div>' : "");
+      (off.length ? sec("Больше не продаются", off.length, "🗄", "за что давали и когда были") + '<div class="pk-wrap pk-old">' + off.map(packCard).join("") + '</div>' : "");
     if (!packs.length) { empty.hidden = false; empty.innerHTML = "<b>Наборов пока нет</b><p>Скоро здесь появятся наборы за реальные деньги.</p>"; }
     return;
   }
@@ -355,13 +358,15 @@ new IntersectionObserver(es => {
 
 // ---------- наборы за реальные деньги (packs.json, ведётся вручную)
 const catByName = n => catalog && catalog.find(c => c.n.toLowerCase() === String(n).toLowerCase());
+const packItems = p => (p.full && p.full.length ? p.full : (p.items || []).map(n => { const c = catByName(n); return { n, i: c ? c.i : "", t: "" }; }));
 const money = p => [p.usd ? "≈ $" + p.usd : "", p.try ? "≈ " + p.try + " ₺" : ""].filter(Boolean).join(" · ");
 function packCard(p, i) {
-  const ics = (p.items || []).slice(0, 3).map(n => { const c = catByName(n); return c ? '<img loading="lazy" src="' + esc(c.i) + '" alt="">' : ""; }).join("");
+  if (p.active === false && !(p.items || []).length) return '<button class="pkl" data-p="' + packs.indexOf(p) + '">' + esc(p.name) + '</button>';
+  const ics = packItems(p).filter(x => x.i).slice(0, 3).map(x => '<img loading="lazy" src="' + esc(x.i) + '" alt="">').join("");
   const pills = [money(p) ? '<span class="pill g">' + esc(money(p)) + '</span>' : "", p.vbucks ? '<span class="pill">+' + esc(p.vbucks) + ' В-баксов</span>' : "",
     p.till && p.active !== false ? '<span class="pill">до ' + fmt(dayOf(p.till)) + '</span>' : "", p.last && p.active === false ? '<span class="pill">был ' + fmt(dayOf(p.last), true) + '</span>' : ""].join("");
   return '<button class="pk' + (p.active === false ? " off" : "") + '" data-p="' + packs.indexOf(p) + '"><div class="row1">' + (ics ? '<div class="ics">' + ics + '</div>' : "") +
-    '<div><h3>' + esc(p.name) + '</h3><div class="meta">' + esc((p.items || []).join(", ")) + '</div></div></div><div class="bot">' + pills + '</div></button>';
+    '<div><h3>' + esc(p.name) + '</h3><div class="meta">' + esc(packItems(p).map(x => x.n).join(", ")) + '</div></div></div><div class="bot">' + pills + '</div></button>';
 }
 function openPack(p) {
   const rows = [];
@@ -371,7 +376,7 @@ function openPack(p) {
   if (p.till && p.active !== false) rows.push([IC.clock, "Продаётся до", fmt(dayOf(p.till), true)]);
   if (p.last) rows.push([IC.back, "Последний раз", fmt(dayOf(p.last), true)]);
   if (p.how) rows.push([IC.repeat, "Как получали", p.how]);
-  const parts = (p.items || []).map(n => { const c = catByName(n); return '<div class="part">' + (c ? '<img loading="lazy" src="' + esc(c.i) + '" alt="">' : "") + '<div>' + esc(n) + '</div></div>'; }).join("");
+  const parts = packItems(p).map(x => '<div class="part">' + (x.i ? '<img loading="lazy" src="' + esc(x.i) + '" alt="">' : "") + '<div>' + esc(x.n) + '</div></div>').join("");
   $("pane").innerHTML = '<div class="grab"></div><div class="pb" style="padding-top:30px"><button class="x" id="x" aria-label="Закрыть" style="top:14px">✕</button><h2>' + esc(p.name) + '</h2>' +
     '<div class="tags"><span class="tag rar" style="background:#ffd166">' + (p.active === false ? "Больше не продаётся" : "Набор за реальные деньги") + '</span></div>' +
     (p.note ? '<p class="desc">' + esc(p.note) + '</p>' : "") +
@@ -511,7 +516,7 @@ $("q").addEventListener("input", e => { clearTimeout(qT); qT = setTimeout(() => 
 }
 $("chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if (!b) return; cat = b.dataset.c; shown = PAGE; haptic("sel"); chips(); render(); });
 $("list").addEventListener("click", e => {
-  const pk = e.target.closest(".pk");
+  const pk = e.target.closest(".pk,.pkl");
   if (pk) { openPack(packs[+pk.dataset.p]); return; }
   const b = e.target.closest(".it"); if (!b) return;
   const id = b.dataset.id;
