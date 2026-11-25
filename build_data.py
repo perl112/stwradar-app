@@ -333,6 +333,14 @@ def main() -> None:
         print(f"видео fortnite.gg: {type(e).__name__}: {e}")
         vids = {}
     (OUT / "videos.json").write_text(json.dumps(vids, separators=(",", ":")), encoding="utf-8")
+    # наборы за реальные деньги — ведутся вручную в packs.json в корне репо
+    try:
+        packs = json.loads(Path("packs.json").read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"packs.json не прочитан: {e}")
+        packs = []
+    (OUT / "packs.json").write_text(json.dumps(packs, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"наборы: {len(packs)}")
     cat = build_catalog()
     (OUT / "catalog.json").write_text(json.dumps(cat, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"каталог: {len(cat)} предметов")
