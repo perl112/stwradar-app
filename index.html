@@ -114,6 +114,8 @@ if (inTg) { tg.ready(); tg.expand(); try { tg.setHeaderColor("#0d1b2e"); tg.setB
 const SHOP_CATS = [["all","Все"],["new","Новинки"],["back","Вернулись"],["outfit","Скины"],["emote","Эмоции"],["pickaxe","Кирки"],["glider","Дельтапланы"],["backpack","Рюкзаки"],["bundle","Наборы"],["wrap","Обёртки"],["shoe","Кроссовки"],["other","Остальное"]];
 const ALL_CATS = [["all","Все"],["outfit","Скины"],["emote","Эмоции"],["pickaxe","Кирки"],["glider","Дельтапланы"],["backpack","Рюкзаки"],["wrap","Обёртки"],["shoe","Кроссовки"],["contrail","Следы"],["music","Музыка"],["other","Остальное"]];
 const PAGE = 60;
+// адрес бота на cloudflare (воркер). пусто — избранное хранится только в телеге, без уведомлений
+const API = "https://stwradar.WORKER-SUBDOMAIN.workers.dev";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const DAY = 864e5;
 const dayOf = s => Date.UTC(+s.slice(0,4), +s.slice(5,7)-1, +s.slice(8,10));
@@ -128,11 +130,30 @@ const inShop = new Map();   // id предмета -> позиция магаз�
 // ---------- избранное: облако телеги (синхронно между устройствами) + запасной localStorage
 let fav = {};
 try { fav = JSON.parse(localStorage.getItem("stw_fav") || "{}"); } catch (e) {}
-if (inTg && tg.CloudStorage) try { tg.CloudStorage.getItem("fav", (err, v) => { if (!err && v) { try { fav = JSON.parse(v); render(); } catch (e) {} } }); } catch (e) {}
+if (inTg && tg.CloudStorage) try { tg.CloudStorage.getItem("fav", (err, v) => { if (!err && v) { try { fav = JSON.parse(v); render(); syncFav(); } catch (e) {} } }); } catch (e) {}
 function saveFav() {
   const v = JSON.stringify(fav);
   try { localStorage.setItem("stw_fav", v); } catch (e) {}
   if (inTg && tg.CloudStorage) try { tg.CloudStorage.setItem("fav", v); } catch (e) {}
+  syncFav();
+}
+// отправляем избранное боту, чтобы он написал, когда предмет появится в магазине
+let syncT;
+function syncFav() {
+  if (!inTg || !API || API.includes("WORKER-SUBDOMAIN")) return;
+  clearTimeout(syncT);
+  syncT = setTimeout(() => {
+    fetch(API + "/api/fav", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ initData: tg.initData, favs: Object.values(fav).map(f => ({ id: f.key, name: f.name })) }) })
+      .catch(() => {});
+  }, 600);
+}
+let askedWrite = false;
+function askWrite() {
+  // если миниапп открыли по ссылке, а не из чата с ботом, просим разрешение писать в личку
+  if (askedWrite || !inTg || !tg.requestWriteAccess) return;
+  askedWrite = true;
+  try { tg.requestWriteAccess(() => {}); } catch (e) {}
 }
 
 // ---------- общий вид предмета (магазин и каталог приводим к одному формату)
@@ -238,26 +259,25 @@ function openItem(it) {
   if (it.rarity) facts.push(["Редкость", it.rarity]);
   const video = it.video || (s && s.video);
   $("pane").innerHTML =
-    (video ? '<div class="vid"><div id="yt"></div></div><button class="x" id="x" aria-label="Закрыть" style="top:10px">✕</button>' +
-      '<div class="vol"><button id="mute" aria-label="Без звука">🔈</button><input id="vr" type="range" min="0" max="100" step="5" value="' + vol + '" aria-label="Громкость"><span id="vv">' + vol + '%</span></div>'
-    : '<div class="big" style="--c1:' + it.c1 + ';--c2:' + it.c2 + '">' + (it.img ? '<img src="' + esc(it.img) + '" alt="">' : "") + '<button class="x" id="x" aria-label="Закрыть">✕</button></div>') +
+    '<div class="big" style="--c1:' + it.c1 + ';--c2:' + it.c2 + '">' + (it.img ? '<img src="' + esc(it.img) + '" alt="">' : "") + '<button class="x" id="x" aria-label="Закрыть">✕</button></div>' +
     '<div class="pb"><h2>' + esc(it.name) + '</h2><div class="ty">' + esc([it.typeName, it.set].filter(Boolean).join(" · ")) + '</div>' +
     (it.desc ? '<p class="desc">' + esc(it.desc) + '</p>' : "") +
     '<div class="facts">' + facts.map(([a, b]) => '<div class="f"><span>' + a + '</span><b>' + esc(b) + '</b></div>').join("") + '</div>' +
     (it.parts && it.parts.length ? '<div class="ty" style="margin-bottom:6px">В наборе:</div><div class="parts">' + it.parts.map(p => '<div class="part">' + (p.img ? '<img loading="lazy" src="' + esc(p.img) + '" alt="">' : "") + '<div>' + esc(p.name) + '</div></div>').join("") + '</div>' : "") +
     '<button class="btn ' + (on ? "s" : "p") + '" id="w">' + (on ? "⭐ В избранном · убрать" : "⭐ В избранное — напомнить, когда появится") + '</button>' +
+    (video ? '<button class="btn s" id="vid">▶ Смотреть видео на YouTube</button>' : "") +
     '<button class="btn s" id="share">Поделиться с другом</button></div>';
   $("sheet").classList.add("on");
   $("x").onclick = close;
-  if (video) {
-    mountVideo(video);
-    $("vr").oninput = e => setVol(+e.target.value);
-    $("mute").onclick = () => { const v = vol > 0 ? 0 : 50; $("vr").value = v; setVol(v); };
-  }
+  if (video) $("vid").onclick = () => {
+    const u = "https://www.youtube.com/watch?v=" + encodeURIComponent(video);
+    if (inTg && tg.openLink) tg.openLink(u); else window.open(u, "_blank");
+  };
   $("w").onclick = () => {
     if (fav[key]) { delete fav[key]; toast("Убрано из избранного"); }
     else {
       fav[key] = { id: key, key, name: it.name, img: it.thumb || it.img, last: s ? s.lastSeen : it.lastSeen };
+      askWrite();
       toast(s ? "Добавлено! Он уже в магазине 🎉" : "Добавлено! Напишем, когда «" + it.name + "» появится");
       if (inTg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
     }
