@@ -64,6 +64,42 @@ def rarity_colors(obj: dict) -> tuple[str, str, str]:
     return top, bot, top
 
 
+# откуда предмет: по тегам игры (Cosmetics.Source.*) + был ли он в магазине
+SOURCE_WORDS = [
+    ("itemshop", "Магазин"), ("battlepass", "Боевой пропуск"), ("subscription", "Отряд Fortnite"), ("crew", "Отряд Fortnite"),
+    ("tournament", "Турнир"), ("cup", "Турнир"), ("competitive", "Турнир"), ("ranked", "Рейтинговый режим"),
+    ("twitch", "Twitch Drops"), ("drop", "Twitch Drops"), ("quest", "Задания"), ("challenge", "Задания"),
+    ("refer", "Пригласи друга"), ("starterpack", "Стартовый набор"), ("pack", "Платный набор"),
+    ("promo", "Промо-акция"), ("event", "Событие"), ("festival", "Fortnite Festival"), ("lego", "LEGO Fortnite"),
+    ("rocket", "Rocket Pass"), ("winterfest", "Зимний фестиваль"), ("fortnitemares", "Кошмарный Fortnite"),
+    ("savetheworld", "Сражение с Бурей"), ("stw", "Сражение с Бурей"), ("founder", "Набор основателя"),
+    ("playstation", "Эксклюзив PlayStation"), ("xbox", "Эксклюзив Xbox"), ("nintendo", "Эксклюзив Nintendo"),
+    ("samsung", "Эксклюзив Samsung"), ("mobile", "Мобильная акция"), ("gift", "Подарок"),
+]
+
+
+def sources(obj: dict) -> list[str]:
+    out = []
+    for t in obj.get("gameplayTags") or []:
+        if not isinstance(t, str) or not t.lower().startswith("cosmetics.source."):
+            continue
+        rest = t[len("cosmetics.source."):].lower().replace(".", "").replace("_", "")
+        label = next((ru for key, ru in SOURCE_WORDS if key in rest), None)
+        # неизвестные служебные теги не показываем, чтобы не было английской каши
+        if label and label not in out:
+            out.append(label)
+    if obj.get("shopHistory") and "Магазин" not in out:
+        out.insert(0, "Магазин")
+    return out
+
+
+def intro(obj: dict) -> str:
+    i = obj.get("introduction") or {}
+    if i.get("chapter") and i.get("season"):
+        return f"Глава {i['chapter']}, сезон {i['season']}"
+    return (i.get("text") or "").strip().rstrip(".")
+
+
 def kind_of(t: str) -> str:
     return t if t in KNOWN else "other"
 
@@ -142,6 +178,9 @@ def build_shop() -> dict:
             "rarity": (first.get("series") or {}).get("value") or (first.get("rarity") or {}).get("displayValue", ""),
             "set": (first.get("set") or {}).get("text", ""),
             "rb": rarity_colors(first)[2],
+            "src": sources({"gameplayTags": [t for b in br for t in (b.get("gameplayTags") or [])],
+                            "shopHistory": first.get("shopHistory")}),
+            "intro": intro(first),
             "price": e.get("finalPrice"), "regular": e.get("regularPrice"),
             "out": e.get("outDate"),
             "img": (nda[0]["image"] if nda else None) or imgs.get("featured") or imgs.get("icon") or "",
@@ -192,6 +231,7 @@ def build_catalog() -> list:
             "t": (c.get("type") or {}).get("displayValue", ""),
             "r": (c.get("series") or {}).get("value") or (c.get("rarity") or {}).get("displayValue", ""),
             "c1": rarity_colors(c)[0], "c2": rarity_colors(c)[1],
+            "o": sources(c), "in": intro(c),
             "s": (c.get("set") or {}).get("text", ""),
             "d": c.get("description") or "",
             "i": icon, "b": imgs.get("icon") or icon,
