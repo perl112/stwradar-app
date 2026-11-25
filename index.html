@@ -44,6 +44,9 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 .search::placeholder{color:#6f8aa5}
 .chips{display:flex;gap:6px;overflow-x:auto;padding-top:10px;scrollbar-width:none;scroll-padding-inline:16px}
 .chips::-webkit-scrollbar{display:none}
+.chips{cursor:grab;user-select:none;-webkit-user-select:none}
+.chips.drag{cursor:grabbing}
+.chips.drag .chip{pointer-events:none}
 .chip{flex:none;border:1px solid var(--line);background:transparent;color:var(--mut);border-radius:20px;padding:7px 13px;font-size:13px;font-weight:700;cursor:pointer;min-height:36px;transition:all .2s}
 .chip.on{background:#ffffff14;color:var(--ink);border-color:#ffffff30}
 .chip b{font-weight:700;opacity:.55;margin-left:5px}
@@ -132,6 +135,8 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 .btn.hon{background:#ff4d7a1f;color:#ff9ab3;border:1px solid #ff4d7a55}
 .btn svg{width:18px;height:18px;vertical-align:-3px;margin-right:6px;fill:currentColor}
 .btn.s{background:#ffffff0f;color:var(--ink);border:1px solid var(--line)}
+.srcs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+.sc{border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700;background:#ffffff0d;border:1px solid var(--line);color:var(--ink)}
 .lbl{color:var(--mut);font-size:13px;font-weight:700;margin:14px 0 8px}
 
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#eaf7ff;color:#06263c;font-weight:700;padding:12px 18px;border-radius:14px;z-index:30;opacity:0;pointer-events:none;transition:all .25s;max-width:90vw;text-align:center;box-shadow:0 10px 30px #0008}
@@ -227,7 +232,7 @@ function askWrite() {
 
 // ---------- предметы
 const fromCat = c => ({ id: c.id, keys: [c.id], name: c.n, kind: c.k, typeName: c.t, rarity: c.r, set: c.s, desc: c.d,
-  img: c.b || c.i, thumb: c.i, lastSeen: c.h, times: c.c, firstSeen: c.f, c1: c.c1 || "#22456a", c2: c.c2 || "#11243b", rb: c.c1 });
+  img: c.b || c.i, thumb: c.i, src: c.o || [], intro: c.in || "", lastSeen: c.h, times: c.c, firstSeen: c.f, c1: c.c1 || "#22456a", c2: c.c2 || "#11243b", rb: c.c1 });
 const fromShop = it => ({ ...it, thumb: it.img });
 
 function badge(it, mode) {
@@ -251,6 +256,10 @@ function card(it, mode) {
 }
 const grid = (items, mode) => '<div class="grid">' + items.map(i => card(i, mode)).join("") + '</div>';
 const sec = (title, n, ico, sub) => '<div class="sec">' + (ico ? '<i>' + ico + '</i>' : "") + '<div>' + title + (sub ? '<small>' + sub + '</small>' : "") + '</div><span>' + n + '</span></div>';
+const SRC_ICO = { "Магазин": "🛒", "Боевой пропуск": "🎖", "Отряд Fortnite": "👑", "Турнир": "🏆", "Рейтинговый режим": "📈", "Twitch Drops": "📺",
+  "Задания": "📜", "Пригласи друга": "🤝", "Стартовый набор": "📦", "Платный набор": "📦", "Промо-акция": "🎟", "Событие": "🎉", "Fortnite Festival": "🎸",
+  "LEGO Fortnite": "🧱", "Rocket Pass": "🚀", "Зимний фестиваль": "❄️", "Кошмарный Fortnite": "🎃", "Сражение с Бурей": "🌪", "Набор основателя": "🌪",
+  "Эксклюзив PlayStation": "🎮", "Эксклюзив Xbox": "🎮", "Эксклюзив Nintendo": "🎮", "Эксклюзив Samsung": "📱", "Мобильная акция": "📱", "Подарок": "🎁" };
 const SEC_ICO = { bundle: "🎁", outfit: "🧍", emote: "💃", pickaxe: "⛏️", glider: "🪂", backpack: "🎒", wrap: "🎨", shoe: "👟", contrail: "✨", music: "🎵", other: "📦" };
 
 // ---------- списки
@@ -323,7 +332,7 @@ new IntersectionObserver(es => {
 
 // ---------- карточка предмета
 function openItem(it) {
-  const s = inShop.get(it.id) || inShop.get(it.keys[0]) || (it.price ? it : null);
+  const s = it.price != null ? it : (inShop.get(it.id) || inShop.get(it.keys[0]) || null);
   const key = it.keys[0];
   const rb = it.rb || it.c1;
   const last = s ? s.lastSeen : it.lastSeen, times = (s ? s.times : it.times) || 0;
@@ -335,6 +344,8 @@ function openItem(it) {
   rows.push([IC.back, "Последний раз", s && s.isNew ? "впервые сегодня" : s && s.days === 1 ? "вчера" : last ? fmt(dayOf(last), true) + (s && s.days ? " · " + s.days + " " + plural(s.days, "день", "дня", "дней") + " назад" : "") : "не продавался"]);
   rows.push([IC.repeat, "Был в магазине", times ? times + " " + plural(times, "раз", "раза", "раз") : "ни разу"]);
   if (it.firstSeen || (s && s.firstSeen)) rows.push([IC.star, "Впервые в магазине", fmt(dayOf(it.firstSeen || s.firstSeen), true)]);
+  if (it.intro) rows.push([IC.gem, "Появился в игре", it.intro]);
+  const srcs = (it.src && it.src.length ? it.src : (times ? ["Магазин"] : []));
   const tags = [it.rarity ? '<span class="tag rar">' + esc(it.rarity) + '</span>' : "", it.typeName ? '<span class="tag">' + esc(it.typeName) + '</span>' : "", it.set ? '<span class="tag">' + esc(it.set) + '</span>' : ""].join("");
   const on = () => !!fav[key];
   $("pane").innerHTML =
@@ -344,6 +355,7 @@ function openItem(it) {
     '<a class="src" id="src" hidden target="_blank" rel="noopener">видео: fortnite.gg</a>' +
     '<div class="pb" style="--b:' + rb + '"><h2>' + esc(it.name) + '</h2><div class="tags">' + tags + '</div>' +
     (it.desc ? '<p class="desc">' + esc(it.desc) + '</p>' : "") +
+    (srcs.length ? '<div class="lbl">Где получить</div><div class="srcs">' + srcs.map(x => '<span class="sc">' + (SRC_ICO[x] || "•") + ' ' + esc(x) + '</span>').join("") + '</div>' : "") +
     '<div class="rows">' + rows.map(([ic, a, b]) => '<div class="row">' + ic + '<span>' + a + '</span><b>' + esc(b) + '</b></div>').join("") + '</div>' +
     (it.parts && it.parts.length ? '<div class="lbl">В наборе</div><div class="parts">' + it.parts.map(p => '<div class="part">' + (p.img ? '<img loading="lazy" src="' + esc(p.img) + '" alt="">' : "") + '<div>' + esc(p.name) + '</div></div>').join("") + '</div>' : "") +
     '<button class="btn p" id="w"></button><button class="btn s" id="share">Поделиться с другом</button></div>';
@@ -434,6 +446,15 @@ $("shade").onclick = close;
 document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
 let qT;
 $("q").addEventListener("input", e => { clearTimeout(qT); qT = setTimeout(() => { query = e.target.value; shown = PAGE; render(); }, 120); });
+{
+  const c = $("chips");
+  c.addEventListener("wheel", e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { c.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
+  let down = false, sx = 0, sl = 0, moved = false;
+  c.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse") return; down = true; moved = false; sx = e.clientX; sl = c.scrollLeft; });
+  window.addEventListener("pointermove", e => { if (!down) return; const dx = e.clientX - sx; if (Math.abs(dx) > 4) { moved = true; c.classList.add("drag"); } c.scrollLeft = sl - dx; });
+  window.addEventListener("pointerup", () => { if (!down) return; down = false; setTimeout(() => c.classList.remove("drag"), 0); });
+  c.addEventListener("click", e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+}
 $("chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if (!b) return; cat = b.dataset.c; shown = PAGE; haptic("sel"); chips(); render(); });
 $("list").addEventListener("click", e => {
   const b = e.target.closest(".it"); if (!b) return;
@@ -475,7 +496,8 @@ $("list").innerHTML = '<div class="grid">' + '<div class="sk"></div>'.repeat(8) 
 fetch("data/shop.json").then(r => r.json()).then(d => {
   vbIcon = d.vbuck || ""; today = dayOf(d.date);
   shop = d.items.slice().sort((a, b) => (a.order - b.order));
-  shop.forEach(it => it.keys.forEach(k => inShop.set(k, it)));
+  // для каталога: если предмет продаётся и отдельно, и в наборе — показываем отдельную (обычно дешевле) позицию
+  shop.forEach(it => it.keys.forEach(k => { const o = inShop.get(k); if (!o || (o.kind === "bundle" && it.kind !== "bundle") || (o.kind === it.kind && it.price < o.price)) inShop.set(k, it); }));
   $("date").textContent = fmt(today, true) + " · " + shop.length + " " + plural(shop.length, "предмет", "предмета", "предметов");
   chips(); render();
   setTimeout(loadCatalog, 1500);   // каталог подгружаем заранее, чтобы вкладка открывалась сразу
