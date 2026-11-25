@@ -149,12 +149,24 @@ def local_or_remote(remote: str, path: Path) -> str:
     return str(path.relative_to("site")).replace("\\", "/") if path.exists() else remote
 
 
+def gg_numbers() -> dict:
+    """номера предметов на fortnite.gg (из ggitems.json + ggextra.json), ключи в нижнем регистре"""
+    mp = {}
+    for f in ("ggitems.json", "ggextra.json"):
+        try:
+            mp.update({k.lower(): str(v) for k, v in json.loads(Path(f).read_text(encoding="utf-8")).items()})
+        except Exception:
+            pass
+    return mp
+
+
 def build_shop() -> dict:
     d = get(f"{API}/shop?language=ru&responseFlags=4")["data"]
     today = day(d["date"])
     now = datetime.now(timezone.utc)
     items, seen = [], set()
-    for e in d.get("entries") or []:
+    gg = gg_numbers()
+    for pos, e in enumerate(d.get("entries") or []):
         br = e.get("brItems") or []
         if not br or e.get("offerId") in seen:
             continue
@@ -184,7 +196,10 @@ def build_shop() -> dict:
             "intro": intro(first),
             "price": e.get("finalPrice"), "regular": e.get("regularPrice"),
             "out": e.get("outDate"),
-            "img": (nda[0]["image"] if nda else None) or imgs.get("featured") or imgs.get("icon") or "",
+            # картинка как в игровом магазине (newDisplayAsset); у «проблемных» лотов её нет — тогда берём с fortnite.gg
+            "img": (nda[0]["image"] if nda else None)
+                   or (f"https://fortnite.gg/img/items/{gg[first['id'].lower()]}/featured.png?1" if gg.get(first.get("id", "").lower()) else None)
+                   or imgs.get("featured") or imgs.get("icon") or "",
             "c1": col((e.get("colors") or {}).get("color1")),
             "c2": col((e.get("colors") or {}).get("color3") or (e.get("colors") or {}).get("color2")),
             "isNew": is_new, "days": days, "returned": (not is_new) and days is not None and days >= 2,
@@ -194,7 +209,8 @@ def build_shop() -> dict:
             "parts": [{"id": b.get("id", ""), "name": b.get("name"), "img": (b.get("images") or {}).get("smallIcon")}
                       for b in br] if e.get("bundle") else [],
             "keys": [b.get("id", "") for b in br],
-            "order": (e.get("layout") or {}).get("index", 0),
+            "order": pos,
+            "sec": (e.get("layout") or {}).get("name") or "",
         })
     # зеркалим картинки магазина (каждый день новые) и иконку в-баксов
     jobs, links = [], []
@@ -400,6 +416,9 @@ def xb_enrich(p) -> None:
             print(f"  обложка {pid}: {type(e).__name__}")
     if not p.get("items"):
         p["items"] = xb_items(en.get("ProductDescription") or "")
+    m = re.search(r"«([^»]+)»", ru.get("ProductTitle") or "")
+    if m and (not p.get("name") or p.get("name") == p.get("en")):
+        p["name"] = m.group(1)   # русское название из xbox
     note = (ru.get("ShortDescription") or "").strip()
     if note:
         p["note"] = note
@@ -416,24 +435,12 @@ def build_packs(cat: list) -> None:
         print(f"packs.json не прочитан: {e}")
         packs = []
     by_id = {c["id"].lower(): c for c in cat}
-    # английские названия наборов совпадают с названием их «набора предметов» (set) в игре
-    sets = {}
-    try:
-        for c in get(f"{API}/cosmetics/br?language=en")["data"]:
-            st = c.get("set") or {}
-            for k in {(st.get("value") or "").lower(), (st.get("backendValue") or "").lower()}:
-                if k:
-                    sets.setdefault(k, []).append(c)
-    except Exception as e:
-        print(f"английский каталог не загрузился: {e}")
-
     def short(c):
         return {"id": c["id"], "n": c["n"], "i": c["i"], "t": c["t"], "c1": c["c1"], "c2": c["c2"]}
 
     found = 0
     for p in packs:
-        if p.get("active", True):
-            xb_enrich(p)
+        xb_enrich(p)
         if not p.get("img") and p.get("img0"):
             p["img"] = p["img0"]   # запасная обложка
             try:
@@ -453,14 +460,6 @@ def build_packs(cat: list) -> None:
                 pass
             if hit and hit["id"].lower() in by_id:
                 full.append(short(by_id[hit["id"].lower()]))
-        if not full and p.get("en"):
-            base = PACK_TAIL.sub("", p["en"].strip())
-            nb = re.sub(r"^the\s+", "", base, flags=re.I)
-            for key in (base.lower(), nb.lower(), nb.replace(" ", "").lower()):
-                grp = sets.get(key)
-                if grp:
-                    full = [short(by_id[c["id"].lower()]) for c in grp if c["id"].lower() in by_id]
-                    break
         seen = set()
         p["full"] = [x for x in full if not (x["id"] in seen or seen.add(x["id"]))]
         found += bool(full)
