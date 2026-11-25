@@ -7,6 +7,12 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import sys
+
+START = time.time()
+IMG_BUDGET = 14 * 60     # на скачивание картинок за запуск — не больше 14 минут, остальное докачается в следующий раз
+XB_BUDGET = 4 * 60       # на xbox-магазин — не больше 4 минут
+sys.stdout.reconfigure(line_buffering=True)   # чтобы лог в Actions шёл сразу
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -15,7 +21,7 @@ API = "https://fortnite-api.com/v2"
 OUT = Path("site/data")
 IMG = Path("site/img")
 SHOP_PX, CAT_PX = 800, 352   # магазин — крупно и чётко; каталог — из большой иконки, а не маленькой
-CAT_PER_RUN = 6000   # за запуск качаем не больше стольких новых иконок
+CAT_PER_RUN = 2500   # за запуск качаем не больше стольких новых иконок
 KNOWN = {"outfit", "emote", "pickaxe", "glider", "backpack", "wrap", "shoe", "contrail", "music", "loadingscreen",
          "spray", "emoji", "pet", "petcarrier", "toy"}
 
@@ -113,24 +119,26 @@ def fetch_img(url: str, path: Path, px: int) -> bool:
     """скачиваем, ужимаем в webp и кладём рядом с сайтом — так всё грузится с github.io без впн"""
     if path.exists():
         return True
+    if time.time() - START > IMG_BUDGET:
+        return False   # время вышло — докачаем в следующий запуск
     from PIL import Image
-    for attempt in range(4):
+    for attempt in range(3):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "image/*"})
-            with urllib.request.urlopen(req, timeout=30) as r:
+            with urllib.request.urlopen(req, timeout=15) as r:
                 im = Image.open(io.BytesIO(r.read())).convert("RGBA")
             im.thumbnail((px, px), Image.LANCZOS)
             path.parent.mkdir(parents=True, exist_ok=True)
             im.save(path, "WEBP", quality=90 if px >= 700 else 86, method=6)
             return True
         except urllib.error.HTTPError as e:
-            if e.code in (429, 500, 502, 503, 504) and attempt < 3:
+            if e.code in (429, 500, 502, 503, 504) and attempt < 2:
                 time.sleep(float(e.headers.get("Retry-After") or 2 * (attempt + 1)))
                 continue
             FAILS.append(f"{e.code} {url}")
             return False
         except Exception as e:
-            if attempt < 3:
+            if attempt < 2:
                 time.sleep(1 + attempt)
                 continue
             FAILS.append(f"{type(e).__name__} {url}")
@@ -320,7 +328,7 @@ def fresh_ggitems() -> dict:
     try:
         req = urllib.request.Request("https://fortnite.gg/api/items.json",
                                      headers={"User-Agent": "StormRadarBot/1.0 (+https://t.me/stwradar)", "Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=60) as r:
+        with urllib.request.urlopen(req, timeout=20) as r:
             d = json.load(r)
         if isinstance(d, dict) and len(d) > 1000:
             print(f"свежая таблица fortnite.gg: {len(d)} предметов")
@@ -361,7 +369,7 @@ XB_TYPES = r"(outfit|back bling|pickaxe|harvesting tool|glider|wrap|emote|contra
 
 def xb_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": "StormRadarBot/1.0 (+https://t.me/stwradar)", "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=40) as r:
+    with urllib.request.urlopen(req, timeout=12) as r:
         return json.load(r)
 
 
@@ -436,8 +444,21 @@ def xb_perks(desc: str) -> list:
     return out
 
 
+XB_DEAD = {"n": 0}
+XB_START = []
+
+
 def xb_enrich(p) -> None:
-    pid = p.get("xbox") or xb_find(p)
+    # ограничение по времени и если xbox не отвечает — дальше не пытаемся, сборка не должна висеть
+    if XB_DEAD["n"] >= 3 or time.time() - XB_START[0] > XB_BUDGET:
+        return
+    if p.get("active") is False and not p.get("xbox"):
+        return   # архивные без id не ищем — только те, что вписаны вручную
+    try:
+        pid = p.get("xbox") or xb_find(p)
+    except Exception:
+        XB_DEAD["n"] += 1
+        return
     if not pid:
         return
     p["xbox"] = pid
@@ -446,6 +467,7 @@ def xb_enrich(p) -> None:
         ru = xb_product(pid, "ru-RU")
     except Exception as e:
         print(f"  xbox {pid}: {type(e).__name__}")
+        XB_DEAD["n"] += 1
         return
     imgs = {i.get("ImagePurpose"): i for i in (en.get("Images") or []) if i.get("Uri")}
     art = imgs.get("BoxArt") or imgs.get("FeaturePromotionalSquareArt") or imgs.get("Poster")
@@ -455,7 +477,7 @@ def xb_enrich(p) -> None:
         try:
             from PIL import Image
             req = urllib.request.Request("https:" + art["Uri"] + "?w=720&h=720", headers={"User-Agent": "StormRadarBot/1.0"})
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with urllib.request.urlopen(req, timeout=20) as r:
                 im = Image.open(io.BytesIO(r.read())).convert("RGB")
             w, h = im.size
             if w != h:  # квадрат по центру
@@ -495,6 +517,8 @@ def build_packs(cat: list) -> None:
 
     found = 0
     for p in packs:
+        if not XB_START:
+            XB_START.append(time.time())
         xb_enrich(p)
         if not p.get("img") and p.get("img0"):
             p["img"] = p["img0"]   # запасная обложка
