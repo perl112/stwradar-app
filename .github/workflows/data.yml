@@ -22,7 +22,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -32,14 +32,9 @@ jobs:
       # уже скачанные иконки каталога храним в кэше, чтобы не качать тысячи файлов каждый день
       - uses: actions/cache@v4
         with:
-          path: site/img/c2
-          key: icons2-${{ github.run_id }}
-          restore-keys: icons2-
-      - uses: actions/cache@v4
-        with:
-          path: ggmap
-          key: ggmap-${{ github.run_id }}
-          restore-keys: ggmap-
+          path: site/img/c3
+          key: icons3-${{ github.run_id }}
+          restore-keys: icons3-
       - name: Build data
         run: |
           python build_data.py
