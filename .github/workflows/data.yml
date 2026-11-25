@@ -22,7 +22,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,16 +30,22 @@ jobs:
           python-version: "3.12"
       - run: pip install pillow
       # уже скачанные иконки каталога храним в кэше, чтобы не качать тысячи файлов каждый день
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: site/img/c3
           key: icons3-${{ github.run_id }}
           restore-keys: icons3-
       - name: Build data
         run: |
-          python build_data.py
+          python -u build_data.py
           cp index.html site/
           du -sh site
+      # кэш иконок сохраняем всегда, даже если сборка упала — чтобы в следующий раз не качать заново
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: site/img/c3
+          key: icons3-${{ github.run_id }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
