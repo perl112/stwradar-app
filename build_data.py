@@ -349,6 +349,25 @@ def xb_items(desc: str) -> list:
     return out
 
 
+def accent(im) -> str:
+    """главный яркий цвет обложки — для обводки карточки набора"""
+    import colorsys
+    from PIL import Image
+    sm = im.convert("RGB").resize((48, 48))
+    q = sm.quantize(colors=8, method=Image.Quantize.MEDIANCUT)
+    pal = q.getpalette()
+    best, score = (120, 180, 255), -1
+    for cnt, idx in q.getcolors():
+        r, g, b = pal[idx * 3: idx * 3 + 3]
+        h, l, sat = colorsys.rgb_to_hls(r / 255, g / 255, b / 255)
+        sc = cnt * (sat ** 1.5) * (1 - abs(l - 0.5))   # частый, насыщенный и не слишком тёмный/светлый
+        if sc > score:
+            best, score = (r, g, b), sc
+    h, l, sat = colorsys.rgb_to_hls(*(c / 255 for c in best))
+    r, g, b = colorsys.hls_to_rgb(h, min(max(l, 0.55), 0.68), max(sat, 0.75))
+    return "#%02x%02x%02x" % (int(r * 255), int(g * 255), int(b * 255))
+
+
 def xb_enrich(p) -> None:
     pid = p.get("xbox") or xb_find(p)
     if not pid:
@@ -376,6 +395,7 @@ def xb_enrich(p) -> None:
                 im = im.crop(((w - s) // 2, 0, (w - s) // 2 + s, s))
             im.resize((600, 600), Image.LANCZOS).save(dst, "WEBP", quality=88, method=6)
             p["img"] = local_or_remote("", dst)
+            p["c"] = accent(im)
         except Exception as e:
             print(f"  обложка {pid}: {type(e).__name__}")
     if not p.get("items"):
@@ -416,6 +436,12 @@ def build_packs(cat: list) -> None:
             xb_enrich(p)
         if not p.get("img") and p.get("img0"):
             p["img"] = p["img0"]   # запасная обложка
+            try:
+                import base64
+                from PIL import Image
+                p["c"] = accent(Image.open(io.BytesIO(base64.b64decode(p["img0"].split(",", 1)[1]))))
+            except Exception:
+                pass
         p.pop("img0", None)
         full = []
         for name in p.get("items") or []:
