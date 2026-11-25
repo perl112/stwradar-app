@@ -2,6 +2,7 @@
 запускается гитхабом каждый день, без секретов."""
 import io
 import json
+import re
 import time
 import urllib.error
 import urllib.parse
@@ -259,64 +260,188 @@ def build_catalog() -> list:
 
 
 # ---------- номера предметов на fortnite.gg (для видео с их водяным знаком)
-# как у FNPacks: по одному запросу на предмет, только для сегодняшнего магазина, найденное запоминаем навсегда
-GG_MAP = Path("ggmap/ggmap.json")          # хранится в кэше гитхаба между запусками
-GG_UA = "StormRadarBot/1.0 (+https://t.me/stwradar)"
-GG_PER_RUN = 400
-
-
-def gg_lookup(cid: str):
-    req = urllib.request.Request("https://fortnite.gg/api/item?id=" + urllib.parse.quote(cid),
-                                 headers={"User-Agent": GG_UA, "Accept": "application/json"})
+# таблица «id из игры -> номер на fortnite.gg» лежит в репо (ggitems.json), к fortnite.gg мы не ходим
+def fresh_ggitems() -> dict:
+    """раз в день пробуем взять свежую таблицу с fortnite.gg (один запрос, бот представляется честно).
+    не пустили — работаем с копией из репо, ничего не обходим"""
     try:
-        with urllib.request.urlopen(req, timeout=20) as r:
-            text = r.read().decode("utf-8", "replace")
+        req = urllib.request.Request("https://fortnite.gg/api/items.json",
+                                     headers={"User-Agent": "StormRadarBot/1.0 (+https://t.me/stwradar)", "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            d = json.load(r)
+        if isinstance(d, dict) and len(d) > 1000:
+            print(f"свежая таблица fortnite.gg: {len(d)} предметов")
+            return d
     except urllib.error.HTTPError as e:
-        return ("blocked", e.code)
+        print(f"свежую таблицу fortnite.gg не дали ({e.code}) — беру копию из репо")
     except Exception as e:
-        return ("error", type(e).__name__)
-    import re
+        print(f"свежая таблица fortnite.gg: {type(e).__name__} — беру копию из репо")
+    return {}
+
+
+def build_videos(shop: dict, catalog: list) -> dict:
     try:
-        o = json.loads(text)
-        for c in (o.get("id") if isinstance(o, dict) else None,
-                  (o.get("item") or {}).get("id") if isinstance(o, dict) else None,
-                  (o.get("data") or {}).get("id") if isinstance(o, dict) else None):
-            if c is not None and str(c).isdigit():
-                return ("ok", int(c))
+        mp = json.loads(Path("ggitems.json").read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"ggitems.json не прочитан: {e}")
+        mp = {}
+    mp.update(fresh_ggitems())
+    # ручные номера для новинок: ggextra.json вида {"EID_Новый": 25327}
+    try:
+        mp.update({k: str(v) for k, v in json.loads(Path("ggextra.json").read_text(encoding="utf-8")).items()})
     except Exception:
         pass
-    m = re.search(r"items/(\d{1,7})/", text) or re.search(r'"id"\s*:\s*"?(\d{1,7})', text)
-    return ("ok", int(m.group(1))) if m else ("none", None)
+    low = {k.lower(): v for k, v in mp.items()}
+    need = {k for it in shop["items"] for k in it["keys"]} | {c["id"] for c in catalog}
+    out = {}
+    for cid in need:
+        v = mp.get(cid) or low.get(cid.lower())
+        if v and str(v).isdigit():
+            out[cid] = int(v)
+    print(f"видео fortnite.gg: номера есть у {len(out)} из {len(need)} предметов")
+    return out
 
 
-def build_videos(shop: dict) -> dict:
+# ---------- наборы: обложка в хорошем качестве и состав берём из магазина xbox (открытый каталог microsoft)
+XB_TYPES = r"(outfit|back bling|pickaxe|harvesting tool|glider|wrap|emote|contrail|loading screen|spray|emoticon|music pack|lobby track|jam track|kicks|shoes|banner|sidekick)"
+
+
+def xb_json(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "StormRadarBot/1.0 (+https://t.me/stwradar)", "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=40) as r:
+        return json.load(r)
+
+
+def xb_find(p):
+    """ищем id набора в xbox-сторе по названию (если id не прописан руками)"""
+    tries = []
+    if p.get("en"):
+        tries.append(("en-US", "Fortnite - " + p["en"], lambda t: t.lower().replace("–", "-").strip() == ("fortnite - " + p["en"]).lower()))
+    if p.get("name"):
+        tries.append(("ru-RU", "Fortnite " + p["name"], lambda t: ("«" + p["name"].lower() + "»") in t.lower()))
+    for loc, q, ok in tries:
+        try:
+            url = "https://storeedgefd.dsx.mp.microsoft.com/v9.0/search?" + urllib.parse.urlencode(
+                {"market": "US", "locale": loc, "deviceFamily": "Windows.Xbox", "query": q})
+            for r in (xb_json(url).get("Payload") or {}).get("SearchResults") or []:
+                if ok(r.get("Title") or ""):
+                    return r.get("ProductId")
+        except Exception as e:
+            print(f"  поиск xbox «{q}»: {type(e).__name__}")
+    return None
+
+
+def xb_product(pid, lang):
+    url = f"https://displaycatalog.mp.microsoft.com/v7.0/products?bigIds={pid}&market=US&languages={lang}"
+    prods = xb_json(url).get("Products") or []
+    return ((prods[0].get("LocalizedProperties") or [{}])[0]) if prods else {}
+
+
+def xb_items(desc: str) -> list:
+    """из описания «Includes: - X Outfit - Y Back Bling ...» достаём названия предметов"""
+    desc = re.split(r"V-Bucks are in-game currency", desc or "")[0]
+    out = []
+    for part in re.split(r"\s+-\s+|\n-\s*|•", desc):
+        part = re.sub(r"\((?:with|includes)[^)]*\)", "", part, flags=re.I).strip(" .:;")
+        m = re.match(r"^(.+?)\s+" + XB_TYPES + r"\b", part, re.I) if part else None
+        if m and len(m.group(1)) < 40 and not re.search(r"v-bucks|quest|challenge|access to|experience", m.group(1), re.I):
+            out.append(m.group(1).strip())
+    return out
+
+
+def xb_enrich(p) -> None:
+    pid = p.get("xbox") or xb_find(p)
+    if not pid:
+        return
+    p["xbox"] = pid
     try:
-        mp = json.loads(GG_MAP.read_text(encoding="utf-8"))
-    except Exception:
-        mp = {}
-    ids = []
-    for it in shop["items"]:
-        for k in it["keys"]:
-            if k and k not in mp and k not in ids:
-                ids.append(k)
-    blocked = checked = 0
-    for cid in ids[:GG_PER_RUN]:
-        status, val = gg_lookup(cid)
-        checked += 1
-        if status == "ok":
-            mp[cid] = val
-        elif status == "none":
-            mp[cid] = 0           # у fortnite.gg нет такого предмета — больше не спрашиваем
-        elif status == "blocked":
-            blocked += 1
-            print(f"fortnite.gg не пустил запрос ({val}) — останавливаюсь, не долбим их сервер")
-            break
-        time.sleep(1)             # по одному запросу в секунду
-    GG_MAP.parent.mkdir(parents=True, exist_ok=True)
-    GG_MAP.write_text(json.dumps(mp), encoding="utf-8")
-    videos = {k: v for k, v in mp.items() if v}
-    print(f"номера fortnite.gg: всего {len(videos)}, проверено сейчас {checked}, блокировок {blocked}")
-    return videos
+        en = xb_product(pid, "en-US")
+        ru = xb_product(pid, "ru-RU")
+    except Exception as e:
+        print(f"  xbox {pid}: {type(e).__name__}")
+        return
+    imgs = {i.get("ImagePurpose"): i for i in (en.get("Images") or []) if i.get("Uri")}
+    art = imgs.get("BoxArt") or imgs.get("FeaturePromotionalSquareArt") or imgs.get("Poster")
+    if art:
+        dst = IMG / "packs" / f"{pid}.webp"
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            from PIL import Image
+            req = urllib.request.Request("https:" + art["Uri"] + "?w=720&h=720", headers={"User-Agent": "StormRadarBot/1.0"})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                im = Image.open(io.BytesIO(r.read())).convert("RGB")
+            w, h = im.size
+            if w != h:  # квадрат по центру
+                s = min(w, h)
+                im = im.crop(((w - s) // 2, 0, (w - s) // 2 + s, s))
+            im.resize((600, 600), Image.LANCZOS).save(dst, "WEBP", quality=88, method=6)
+            p["img"] = local_or_remote("", dst)
+        except Exception as e:
+            print(f"  обложка {pid}: {type(e).__name__}")
+    if not p.get("items"):
+        p["items"] = xb_items(en.get("ProductDescription") or "")
+    note = (ru.get("ShortDescription") or "").strip()
+    if note:
+        p["note"] = note
+
+
+# ---------- наборы за реальные деньги (packs.json в корне репо, ведётся вручную)
+PACK_TAIL = re.compile(r"\s*\b(starter quest pack|starter pack|quest pack|challenge pack|pack|bundle)$", re.I)
+
+
+def build_packs(cat: list) -> None:
+    try:
+        packs = json.loads(Path("packs.json").read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"packs.json не прочитан: {e}")
+        packs = []
+    by_id = {c["id"].lower(): c for c in cat}
+    # английские названия наборов совпадают с названием их «набора предметов» (set) в игре
+    sets = {}
+    try:
+        for c in get(f"{API}/cosmetics/br?language=en")["data"]:
+            st = c.get("set") or {}
+            for k in {(st.get("value") or "").lower(), (st.get("backendValue") or "").lower()}:
+                if k:
+                    sets.setdefault(k, []).append(c)
+    except Exception as e:
+        print(f"английский каталог не загрузился: {e}")
+
+    def short(c):
+        return {"id": c["id"], "n": c["n"], "i": c["i"], "t": c["t"], "c1": c["c1"], "c2": c["c2"]}
+
+    found = 0
+    for p in packs:
+        if p.get("active", True):
+            xb_enrich(p)
+        if not p.get("img") and p.get("img0"):
+            p["img"] = p["img0"]   # запасная обложка
+        p.pop("img0", None)
+        full = []
+        for name in p.get("items") or []:
+            hit = None
+            try:
+                q = urllib.parse.urlencode({"name": name, "language": "ru", "searchLanguage": "en", "matchMethod": "full"})
+                hit = get(f"{API}/cosmetics/br/search?{q}").get("data")
+            except Exception:
+                pass
+            if hit and hit["id"].lower() in by_id:
+                full.append(short(by_id[hit["id"].lower()]))
+        if not full and p.get("en"):
+            base = PACK_TAIL.sub("", p["en"].strip())
+            nb = re.sub(r"^the\s+", "", base, flags=re.I)
+            for key in (base.lower(), nb.lower(), nb.replace(" ", "").lower()):
+                grp = sets.get(key)
+                if grp:
+                    full = [short(by_id[c["id"].lower()]) for c in grp if c["id"].lower() in by_id]
+                    break
+        seen = set()
+        p["full"] = [x for x in full if not (x["id"] in seen or seen.add(x["id"]))]
+        found += bool(full)
+        if not p.get("name"):
+            p["name"] = p.get("en", "")
+    (OUT / "packs.json").write_text(json.dumps(packs, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"наборы: {len(packs)}, с составом: {found}")
 
 
 def main() -> None:
@@ -327,23 +452,12 @@ def main() -> None:
     shop = build_shop()
     (OUT / "shop.json").write_text(json.dumps(shop, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"магазин: {len(shop['items'])} предметов за {shop['date']}")
-    try:
-        vids = build_videos(shop)
-    except Exception as e:
-        print(f"видео fortnite.gg: {type(e).__name__}: {e}")
-        vids = {}
-    (OUT / "videos.json").write_text(json.dumps(vids, separators=(",", ":")), encoding="utf-8")
-    # наборы за реальные деньги — ведутся вручную в packs.json в корне репо
-    try:
-        packs = json.loads(Path("packs.json").read_text(encoding="utf-8"))
-    except Exception as e:
-        print(f"packs.json не прочитан: {e}")
-        packs = []
-    (OUT / "packs.json").write_text(json.dumps(packs, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"наборы: {len(packs)}")
     cat = build_catalog()
     (OUT / "catalog.json").write_text(json.dumps(cat, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"каталог: {len(cat)} предметов")
+    build_packs(cat)
+    vids = build_videos(shop, cat)
+    (OUT / "videos.json").write_text(json.dumps(vids, separators=(",", ":")), encoding="utf-8")
     if FAILS:
         print(f"не скачалось картинок: {len(FAILS)}, первые:")
         for f in FAILS[:10]:
