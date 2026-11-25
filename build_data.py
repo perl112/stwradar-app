@@ -2,6 +2,8 @@
 запускается гитхабом каждый день, без секретов."""
 import io
 import json
+import time
+import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
@@ -10,7 +12,8 @@ from pathlib import Path
 API = "https://fortnite-api.com/v2"
 OUT = Path("site/data")
 IMG = Path("site/img")
-SHOP_PX, CAT_PX = 360, 256   # размеры картинок для витрины и каталога
+SHOP_PX, CAT_PX = 360, 256
+CAT_PER_RUN = 3000   # сколько новых иконок каталога качать за один запуск   # размеры картинок для витрины и каталога
 KNOWN = {"outfit", "emote", "pickaxe", "glider", "backpack", "wrap", "shoe", "contrail", "music", "loadingscreen",
          "spray", "emoji", "pet", "petcarrier", "toy"}
 
@@ -38,27 +41,48 @@ def kind_of(t: str) -> str:
     return t if t in KNOWN else "other"
 
 
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+FAILS = []
+
+
 def fetch_img(url: str, path: Path, px: int) -> bool:
     """скачиваем, ужимаем в webp и кладём рядом с сайтом — так всё грузится с github.io без впн"""
     if path.exists():
         return True
-    try:
-        from PIL import Image
-        req = urllib.request.Request(url, headers={"User-Agent": "stwradar-app"})
-        with urllib.request.urlopen(req, timeout=30) as r:
-            im = Image.open(io.BytesIO(r.read())).convert("RGBA")
-        im.thumbnail((px, px), Image.LANCZOS)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        im.save(path, "WEBP", quality=78, method=4)
-        return True
-    except Exception as e:
-        print(f"картинка не скачалась: {url}: {e}")
-        return False
+    from PIL import Image
+    for attempt in range(4):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "image/*"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                im = Image.open(io.BytesIO(r.read())).convert("RGBA")
+            im.thumbnail((px, px), Image.LANCZOS)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            im.save(path, "WEBP", quality=78, method=4)
+            return True
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 500, 502, 503, 504) and attempt < 3:
+                time.sleep(float(e.headers.get("Retry-After") or 2 * (attempt + 1)))
+                continue
+            FAILS.append(f"{e.code} {url}")
+            return False
+        except Exception as e:
+            if attempt < 3:
+                time.sleep(1 + attempt)
+                continue
+            FAILS.append(f"{type(e).__name__} {url}")
+            return False
+    return False
 
 
-def mirror(jobs: list[tuple[str, Path, int]]) -> None:
-    with ThreadPoolExecutor(16) as ex:
+def mirror(jobs: list[tuple[str, Path, int]], workers: int = 6) -> None:
+    jobs = [j for j in jobs if j[0] and not j[1].exists()]
+    with ThreadPoolExecutor(workers) as ex:
         list(ex.map(lambda j: fetch_img(*j), jobs))
+
+
+def local_or_remote(remote: str, path: Path) -> str:
+    """если картинка скачалась — отдаём свою копию, если нет — оригинальную ссылку"""
+    return str(path.relative_to("site")).replace("\\", "/") if path.exists() else remote
 
 
 def build_shop() -> dict:
@@ -105,20 +129,25 @@ def build_shop() -> dict:
             "order": (e.get("layout") or {}).get("index", 0),
         })
     # зеркалим картинки магазина (каждый день новые) и иконку в-баксов
-    jobs = []
+    jobs, links = [], []
     for it in items:
         if it["img"]:
-            jobs.append((it["img"], IMG / "shop" / f"{safe(it['id'])}.webp", SHOP_PX))
-            it["img"] = f"img/shop/{safe(it['id'])}.webp"
-        for p in it["parts"]:
-            if p.get("img"):
-                jobs.append((p["img"], IMG / "c" / f"{safe(p['id'])}.webp", CAT_PX))
-                p["img"] = f"img/c/{safe(p['id'])}.webp"
-    vb = d.get("vbuckIcon")
+            p = IMG / "shop" / f"{safe(it['id'])}.webp"
+            jobs.append((it["img"], p, SHOP_PX)); links.append((it, "img", it["img"], p))
+        for part in it["parts"]:
+            if part.get("img"):
+                p = IMG / "c" / f"{safe(part['id'])}.webp"
+                jobs.append((part["img"], p, CAT_PX)); links.append((part, "img", part["img"], p))
+    vb = d.get("vbuckIcon") or ""
+    vbp = IMG / "vbuck.webp"
     if vb:
-        jobs.append((vb, IMG / "vbuck.webp", 64))
+        jobs.append((vb, vbp, 64))
     mirror(jobs)
-    return {"date": today.isoformat(), "vbuck": "img/vbuck.webp" if vb else "", "items": items}
+    for obj, key, remote, p in links:
+        obj[key] = local_or_remote(remote, p)
+    ok = sum(1 for *_, p in links if p.exists())
+    print(f"картинки магазина: {ok} из {len(links)} скачано")
+    return {"date": today.isoformat(), "vbuck": local_or_remote(vb, vbp) if vb else "", "items": items}
 
 
 def build_catalog() -> list:
@@ -143,13 +172,20 @@ def build_catalog() -> list:
         })
     # сначала то, что недавно было в магазине, потом остальное по дате добавления
     out.sort(key=lambda x: (x["h"] or "", x["a"]), reverse=True)
-    # иконки зеркалим (уже скачанные лежат в кэше гитхаба и повторно не качаются)
+    # иконки зеркалим постепенно: за запуск не больше CAT_PER_RUN новых (сначала недавние),
+    # остальные пока по оригинальной ссылке; уже скачанные лежат в кэше гитхаба
     jobs = []
     for x in out:
-        jobs.append((x["i"], IMG / "c" / f"{safe(x['id'])}.webp", CAT_PX))
-        x["i"] = f"img/c/{safe(x['id'])}.webp"
-        x["b"] = x["i"]
+        p = IMG / "c" / f"{safe(x['id'])}.webp"
+        if not p.exists() and len(jobs) < CAT_PER_RUN:
+            jobs.append((x["i"], p, CAT_PX))
     mirror(jobs)
+    have = 0
+    for x in out:
+        p = IMG / "c" / f"{safe(x['id'])}.webp"
+        x["i"] = x["b"] = local_or_remote(x["i"], p)
+        have += p.exists()
+    print(f"иконки каталога: {have} из {len(out)} уже свои")
     return out
 
 
@@ -164,6 +200,10 @@ def main() -> None:
     cat = build_catalog()
     (OUT / "catalog.json").write_text(json.dumps(cat, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"каталог: {len(cat)} предметов")
+    if FAILS:
+        print(f"не скачалось картинок: {len(FAILS)}, первые:")
+        for f in FAILS[:10]:
+            print("  ", f)
 
 
 if __name__ == "__main__":
