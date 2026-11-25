@@ -160,14 +160,16 @@ def gg_numbers() -> dict:
     return mp
 
 
-def pick_img(e, br, nda, imgs, gg) -> str:
+def pick_img(e, br, nda, imgs, gg, is_b=False) -> str:
     ids = {(b.get("id") or "").lower() for b in br}
     nd = e.get("newDisplayAsset") or {}
     ndid, cid = (nd.get("id") or "").lower(), (nd.get("cosmeticId") or "").lower()
     # верим картинке магазина, только если она точно про этот предмет: совпал cosmeticId или id предмета есть в её id
     nd_ok = bool(nda) and ((cid and cid in ids) or (not cid and any(i and i in ndid for i in ids)))
-    if e.get("bundle"):
-        return ((e.get("bundle") or {}).get("image") or (nda[0]["image"] if nd_ok else None)
+    if is_b:
+        # обложка набора: из api, иначе коллаж с fortnite.gg (если знаем номер набора), иначе картинка магазина
+        gg_b = f"https://fortnite.gg/img/items/{gg[cid]}/featured.png?1" if cid and gg.get(cid) else None
+        return ((e.get("bundle") or {}).get("image") or gg_b or (nda[0]["image"] if nda else None)
                 or imgs.get("featured") or imgs.get("icon") or "")
     first = (br[0].get("id") or "").lower()
     gg_img = f"https://fortnite.gg/img/items/{gg[first]}/featured.png?1" if gg.get(first) else None
@@ -193,14 +195,17 @@ def build_shop() -> dict:
         last = prior[-1] if prior else None
         is_new = (last is None) if hist else ((e.get("banner") or {}).get("backendValue") == "New")
         days = (today - last).days if last else None
-        t = "bundle" if e.get("bundle") else (first.get("type") or {}).get("value", "other")
+        # набор: либо помечен в api, либо несколько предметов со скидкой за комплект
+        # (у некоторых наборов, например «Знаменитая Эддисон Рэй» за 3600, fortnite-api не ставит пометку bundle)
+        is_b = bool(e.get("bundle")) or (len(br) >= 2 and (e.get("regularPrice") or 0) > (e.get("finalPrice") or 0))
+        t = "bundle" if is_b else (first.get("type") or {}).get("value", "other")
         nda = (e.get("newDisplayAsset") or {}).get("renderImages") or []
         imgs = first.get("images") or {}
         items.append({
             "id": e["offerId"],
-            "name": (e.get("bundle") or {}).get("name") or first.get("name"),
+            "name": (e.get("bundle") or {}).get("name") or (f"Набор «{first.get('name')}»" if is_b else first.get("name")),
             "kind": t if t == "bundle" else kind_of(t),
-            "typeName": "Набор" if e.get("bundle") else (first.get("type") or {}).get("displayValue", ""),
+            "typeName": "Набор" if is_b else (first.get("type") or {}).get("displayValue", ""),
             "desc": first.get("description") or "",
             "rarity": (first.get("series") or {}).get("value") or (first.get("rarity") or {}).get("displayValue", ""),
             "set": (first.get("set") or {}).get("text", ""),
@@ -213,7 +218,7 @@ def build_shop() -> dict:
             # картинка как в игровом магазине (newDisplayAsset); у «проблемных» лотов её нет — тогда берём с fortnite.gg
             # картинка: у набора — его собственная обложка (как в игре, все предметы вместе);
             # у предмета — newDisplayAsset, но только если он реально про этот предмет (иначе бывают чужие, как черепаха у микрофона)
-            "img": pick_img(e, br, nda, imgs, gg),
+            "img": pick_img(e, br, nda, imgs, gg, is_b),
             "alt": imgs.get("featured") or imgs.get("icon") or "",
             "c1": col((e.get("colors") or {}).get("color1")),
             "c2": col((e.get("colors") or {}).get("color3") or (e.get("colors") or {}).get("color2")),
@@ -222,8 +227,9 @@ def build_shop() -> dict:
             "lastSeen": last.isoformat() if last else None,
             "video": next((b.get("showcaseVideo") for b in br if b.get("showcaseVideo")), None),
             "parts": [{"id": b.get("id", ""), "name": b.get("name"), "img": (b.get("images") or {}).get("smallIcon")}
-                      for b in br] if e.get("bundle") else [],
+                      for b in br] if is_b else [],
             "keys": [b.get("id", "") for b in br],
+            "n": len(br),
             "order": pos,
             "sec": (e.get("layout") or {}).get("name") or "",
         })

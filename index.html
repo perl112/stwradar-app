@@ -223,7 +223,9 @@ body.full header{padding-top:calc(16px + var(--tg-safe-area-inset-top,0px) + var
 .pkl-t img{width:100%;height:100%;object-fit:cover}
 .pkl-t i svg{width:20px;height:20px;fill:none;stroke:color-mix(in srgb,var(--pc) 70%,#fff);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .nbd{display:block;width:max-content;margin-bottom:4px;padding:2px 7px;border-radius:6px;background:#ffd166;color:#3a2600;font-size:10.5px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;text-shadow:none}
+.nbd.g{background:#ffffffe6;color:#0b1828}
 .nm:has(.nbd){-webkit-line-clamp:3}
+.st.tx{display:grid;place-items:center;padding:4px}.st.tx b{font-size:10px;line-height:1.1;color:var(--ink);text-align:center;overflow:hidden}
 </style>
 </head>
 <body>
@@ -259,7 +261,7 @@ body.full header{padding-top:calc(16px + var(--tg-safe-area-inset-top,0px) + var
 const tg = window.Telegram && Telegram.WebApp;
 const inTg = !!(tg && tg.initData);
 // ---------- самообновление: телега любит держать старую версию страницы в кэше
-const BUILD = "2026-11-25s";
+const BUILD = "2026-11-25u";
 fetch("index.html?nocache=" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(t => {
   const m = t.match(/const BUILD = "([^"]+)"/);
   if (m && m[1] !== BUILD) {
@@ -367,7 +369,8 @@ function card(it, mode) {
     : '<span class="till m">' + (it.lastSeen ? "был " + fmt(dayOf(it.lastSeen), true) : "не продавался") + '</span>';
   return '<button class="it" data-id="' + esc(it.id) + '" style="--c1:' + it.c1 + ';--c2:' + it.c2 + ';--b:' + rb + ';--g:' + rb + '">' +
     '<div class="art">' + (pic ? '<img loading="lazy" decoding="async" src="' + esc(pic) + '"' + (it.alt ? ' data-alt="' + esc(it.alt) + '"' : "") + ' alt="">' : "") + badge(it, mode) +
-    '<span class="hrt' + (fav[it.keys[0]] ? " on" : "") + '" role="button" aria-label="В избранное" data-h="1">' + IC.heart + '</span>' + '<div class="nm">' + (it.kind === "bundle" ? '<small class="nbd">набор' + (it.parts && it.parts.length ? ' · ' + it.parts.length + ' ' + plural(it.parts.length, "предмет", "предмета", "предметов") : "") + '</small>' : "") + esc(it.name) + '</div></div>' +
+    '<span class="hrt' + (fav[it.keys[0]] ? " on" : "") + '" role="button" aria-label="В избранное" data-h="1">' + IC.heart + '</span>' + '<div class="nm">' + (it.kind === "bundle" ? '<small class="nbd">набор' + (it.parts && it.parts.length ? ' · ' + it.parts.length + ' ' + plural(it.parts.length, "предмет", "предмета", "предметов") : "") + '</small>'
+      : mode === "shop" && it.n > 1 ? '<small class="nbd g">комплект · ' + it.n + '</small>' : "") + esc(it.name) + '</div></div>' +
     '<div class="info">' + bottom + '</div></button>';
 }
 const grid = (items, mode) => '<div class="grid">' + items.map(i => card(i, mode)).join("") + '</div>';
@@ -510,38 +513,44 @@ const stCache = {};
 function loadExtras(it, key) {
   const my = vidToken;
   // стили (варианты) — через наш воркер, картинки тоже через него
-  (stCache[key] ? Promise.resolve(stCache[key]) : fetch(API + "/api/styles?id=" + encodeURIComponent(key)).then(r => r.json()).then(d => (stCache[key] = d.styles || [])).catch(() => []))
+  if (it.kind !== "bundle") (stCache[key] ? Promise.resolve(stCache[key]) : fetch(API + "/api/styles?id=" + encodeURIComponent(key)).then(r => r.json()).then(d => (stCache[key] = d.styles || [])).catch(() => []))
     .then(st => {
-      if (my !== vidToken || !st.length || !$("sty")) return;
-      $("sty").innerHTML = st.map((g, gi) => '<div class="stg"><div class="stl" id="stl' + gi + '">' + esc((g.ch || "Стиль").toUpperCase()) + ' · ' + esc(g.o[0].n) + '</div><div class="sts">' +
-        g.o.map((o, oi) => '<button class="st' + (oi ? "" : " on") + '" data-g="' + gi + '" data-o="' + oi + '" title="' + esc(o.n) + '"><img loading="lazy" src="' + esc(o.i) + '" alt=""></button>').join("") + '</div></div>').join("");
+      if (my !== vidToken || !$("sty")) return;
+      const show = st.map((g, gi) => ({ g, gi })).filter(x => x.g.o.length > 1);   // в списке только каналы, где есть выбор
+      if (!show.length) return;
+      const sel = st.map(() => 0);   // выбранный вариант в каждом канале (по порядку игры)
+      const tile = o => o.i ? '<img loading="lazy" src="' + esc(o.i) + '" alt="">' : '<b>' + esc(o.n) + '</b>';
+      $("sty").innerHTML = show.map(({ g, gi }) => '<div class="stg"><div class="stl" id="stl' + gi + '">' + esc((g.ch || "Стиль").toUpperCase()) + ' · ' + esc(g.o[0].n) + '</div><div class="sts">' +
+        g.o.map((o, oi) => '<button class="st' + (oi ? "" : " on") + (o.i ? "" : " tx") + '" data-g="' + gi + '" data-o="' + oi + '" title="' + esc(o.n) + '">' + tile(o) + '</button>').join("") + '</div></div>').join("");
       $("sty").onclick = e => {
         const b = e.target.closest(".st"); if (!b) return;
         const g = +b.dataset.g, o = +b.dataset.o, opt = st[g].o[o];
+        sel[g] = o;
         $("sty").querySelectorAll('.st[data-g="' + g + '"]').forEach(x => x.classList.toggle("on", x === b));
         $("stl" + g).textContent = (st[g].ch || "Стиль").toUpperCase() + " · " + opt.n;
         const big = $("pane").querySelector(".big"), img = big.querySelector("img"), v = big.querySelector("video");
         haptic("sel");
         let ov = big.querySelector(".stov");
-        const base = [...$("sty").querySelectorAll(".st.on")].every(x => x.dataset.o === "0");
-        const card = () => {   // своего видео у стиля нет — показываем стиль карточкой в углу
+        const base = sel.every(x => x === 0);
+        const card = () => {   // видео для такого сочетания нет — показываем стиль карточкой в углу
+          if (!opt.i) return;
           if (!ov) { big.insertAdjacentHTML("beforeend", '<div class="stov"><img alt=""><span></span></div>'); ov = big.querySelector(".stov"); }
           ov.querySelector("img").src = opt.i; ov.querySelector("span").textContent = opt.n;
         };
         if (v && curGG) {
-          // у fortnite.gg видео стилей лежат по порядку: video.mp4 — первый стиль, video-2.mp4 — второй и т.д.
-          let flat = o; for (let k = 0; k < g; k++) flat += st[k].o.length;
-          const baseSrc = "https://fnggcdn.com/items/" + curGG + "/video.mp4?1";
-          const want = base || flat === 0 ? baseSrc : "https://fnggcdn.com/items/" + curGG + "/video-" + (flat + 1) + ".mp4?2";
+          // fortnite.gg хранит видео на каждое сочетание стилей: video-2-1-1.mp4 = 2-й вариант 1-го канала, 1-й второго, 1-й третьего
+          const root = "https://fnggcdn.com/items/" + curGG + "/";
+          const baseSrc = root + "video.mp4?1";
+          const want = base ? baseSrc : root + "video-" + sel.map(x => x + 1).join("-") + ".mp4?1";
           if (ov) { ov.remove(); ov = null; }
           if (v.dataset.src === want) return;
-          const keep = v.currentTime;
           v.dataset.src = want;
           v.onerror = () => { v.onerror = null; v.dataset.src = baseSrc; v.src = baseSrc; v.play().catch(() => {}); card(); };
           v.src = want; v.play().catch(() => {});
           return;
         }
         if (v && big.classList.contains("vid")) { if (base) { if (ov) ov.remove(); } else card(); return; }
+        if (!opt.i) return;
         if (img) img.src = base ? it.img : opt.i; else big.insertAdjacentHTML("afterbegin", '<img src="' + esc(opt.i) + '" alt="">');
       };
     });
@@ -615,7 +624,8 @@ function openItem(it) {
   };
   if (inTg && tg.BackButton) { tg.BackButton.show(); tg.BackButton.onClick(close); }
   if ($("settag")) $("settag").onclick = () => { const x = $("ext"); if (x && x.firstChild) x.scrollIntoView({ behavior: "smooth", block: "start" }); };
-  loadVideo(key);
+  // у набора своё видео и стили не показываем — там обложка набора и список предметов
+  if (it.kind !== "bundle") loadVideo(key);
   loadExtras(it, key);
 }
 
@@ -650,7 +660,7 @@ function loadVideo2(id, my) {
       if (v.videoWidth && v.videoHeight) {
         const r = Math.max(v.videoWidth / v.videoHeight, 0.8);
         big.style.aspectRatio = "auto"; big.style.width = "100%";
-        big.style.height = Math.round(Math.min(big.clientWidth / r, window.innerHeight * 0.64)) + "px";
+        big.style.height = Math.round(Math.min(big.clientWidth / r, window.innerHeight * (window.innerWidth >= 760 ? 0.5 : 0.62))) + "px";
       }
       big.classList.add("vid"); if (curSound) $("vbar").classList.add("on");
       if (d.source) { $("src").href = d.source; $("src").hidden = false; }
