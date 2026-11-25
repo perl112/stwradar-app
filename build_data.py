@@ -14,8 +14,8 @@ from pathlib import Path
 API = "https://fortnite-api.com/v2"
 OUT = Path("site/data")
 IMG = Path("site/img")
-SHOP_PX, CAT_PX = 512, 320
-CAT_PER_RUN = 3000   # сколько новых иконок каталога качать за один запуск   # размеры картинок для витрины и каталога
+SHOP_PX, CAT_PX = 800, 352   # магазин — крупно и чётко; каталог — из большой иконки, а не маленькой
+CAT_PER_RUN = 6000   # за запуск качаем не больше стольких новых иконок
 KNOWN = {"outfit", "emote", "pickaxe", "glider", "backpack", "wrap", "shoe", "contrail", "music", "loadingscreen",
          "spray", "emoji", "pet", "petcarrier", "toy"}
 
@@ -121,7 +121,7 @@ def fetch_img(url: str, path: Path, px: int) -> bool:
                 im = Image.open(io.BytesIO(r.read())).convert("RGBA")
             im.thumbnail((px, px), Image.LANCZOS)
             path.parent.mkdir(parents=True, exist_ok=True)
-            im.save(path, "WEBP", quality=86, method=6)
+            im.save(path, "WEBP", quality=90 if px >= 700 else 86, method=6)
             return True
         except urllib.error.HTTPError as e:
             if e.code in (429, 500, 502, 503, 504) and attempt < 3:
@@ -241,7 +241,7 @@ def build_shop() -> dict:
             jobs.append((it["img"], p, SHOP_PX)); links.append((it, "img", it["img"], p))
         for part in it["parts"]:
             if part.get("img"):
-                p = IMG / "c2" / f"{safe(part['id'])}.webp"
+                p = IMG / "c3" / f"{safe(part['id'])}.webp"
                 jobs.append((part["img"], p, CAT_PX)); links.append((part, "img", part["img"], p))
     vb = d.get("vbuckIcon") or ""
     vbp = IMG / "vbuck.webp"
@@ -276,7 +276,7 @@ def build_catalog() -> list:
     out = []
     for c in data:
         imgs = c.get("images") or {}
-        icon = imgs.get("smallIcon") or imgs.get("icon")
+        icon = imgs.get("icon") or imgs.get("smallIcon")
         if not icon or not c.get("name"):
             continue
         hist = sorted({h[:10] for h in (c.get("shopHistory") or [])})
@@ -299,13 +299,13 @@ def build_catalog() -> list:
     # остальные пока по оригинальной ссылке; уже скачанные лежат в кэше гитхаба
     jobs = []
     for x in out:
-        p = IMG / "c2" / f"{safe(x['id'])}.webp"
+        p = IMG / "c3" / f"{safe(x['id'])}.webp"
         if not p.exists() and len(jobs) < CAT_PER_RUN:
             jobs.append((x["i"], p, CAT_PX))
     mirror(jobs)
     have = 0
     for x in out:
-        p = IMG / "c2" / f"{safe(x['id'])}.webp"
+        p = IMG / "c3" / f"{safe(x['id'])}.webp"
         x["i"] = x["b"] = local_or_remote(x["i"], p)
         have += p.exists()
     print(f"иконки каталога: {have} из {len(out)} уже свои")
@@ -421,6 +421,21 @@ def accent(im) -> str:
     return "#%02x%02x%02x" % (int(r * 255), int(g * 255), int(b * 255))
 
 
+def xb_perks(desc: str) -> list:
+    """что ещё даёт набор, кроме предметов: в-баксы, задания, доступ к пве"""
+    d = (desc or "").replace("\u2019", "'")
+    out = []
+    m = re.search(r"(?:^|[-•:]\s*)([\d,\.]+)\s*V-Bucks(?!\s*as you)", d)
+    if m and not re.search(r"up to\s*" + re.escape(m.group(1)), d):
+        out.append(f"{m.group(1).replace(',', '').replace('.', '')} В-баксов сразу")
+    m = re.search(r"(?:earn|unlock)\s+up to\s+([\d,\.]+)\s*V-Bucks", d, re.I)
+    if m:
+        out.append(f"задания на {m.group(1).replace(',', '').replace('.', '')} В-баксов")
+    if re.search(r"access to\s*[\"“«]?\s*save the world", d, re.I):
+        out.append("доступ к «Сражению с Бурей»")
+    return out
+
+
 def xb_enrich(p) -> None:
     pid = p.get("xbox") or xb_find(p)
     if not pid:
@@ -453,6 +468,9 @@ def xb_enrich(p) -> None:
             print(f"  обложка {pid}: {type(e).__name__}")
     if not p.get("items"):
         p["items"] = xb_items(en.get("ProductDescription") or "")
+    for x in xb_perks(en.get("ProductDescription") or ""):
+        if x not in p.setdefault("perks", []):
+            p["perks"].append(x)
     m = re.search(r"«([^»]+)»", ru.get("ProductTitle") or "")
     if m and (not p.get("name") or p.get("name") == p.get("en")):
         p["name"] = m.group(1)   # русское название из xbox
