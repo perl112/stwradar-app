@@ -32,7 +32,8 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 .tabs{display:flex;gap:4px;margin:0 16px;padding:4px;border-radius:16px;background:var(--glass);border:1px solid var(--line)}
 .tab{flex:1;border:0;background:transparent;color:var(--mut);border-radius:12px;padding:9px 6px;font-weight:700;font-size:14px;cursor:pointer;min-height:40px;transition:background .2s,color .2s;white-space:nowrap}
 .tab.on{background:linear-gradient(#a9e3ff,#7fcdf7);color:#06263c;box-shadow:0 4px 14px #8cd7ff40}
-.cnt{display:inline-block;min-width:18px;margin-left:4px;padding:0 5px;border-radius:9px;background:var(--gold);color:#3a2600;font-size:11.5px;line-height:18px;font-weight:800}
+.cnt{display:inline-block;min-width:18px;margin-left:4px;padding:0 5px;border-radius:9px;background:#ff4d7a;color:#fff;font-size:11.5px;line-height:18px;font-weight:800}
+.tab svg{width:15px;height:15px;vertical-align:-2px;margin-right:4px;fill:currentColor}
 .cnt.z{display:none}
 
 .bar{position:sticky;top:0;z-index:5;padding:12px 16px 10px;background:linear-gradient(var(--bg) 70%,#0c1a2a00)}
@@ -47,8 +48,10 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 .chip.on{background:#ffffff14;color:var(--ink);border-color:#ffffff30}
 .chip b{font-weight:700;opacity:.55;margin-left:5px}
 
-.sec{display:flex;align-items:baseline;gap:8px;margin:18px 16px 10px;font-size:17px;font-weight:800}
-.sec span{color:var(--mut);font-size:13px;font-weight:700}
+.sec{display:flex;align-items:center;gap:10px;margin:22px 16px 12px;font-size:17px;font-weight:800}
+.sec i{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;font-style:normal;font-size:15px;background:#ffffff10;flex:none}
+.sec small{display:block;color:var(--mut);font-size:12.5px;font-weight:600;margin-top:1px}
+.sec span{margin-left:auto;color:var(--mut);font-size:13px;font-weight:700;background:#ffffff0d;border-radius:10px;padding:3px 9px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(156px,1fr));gap:12px;padding:0 16px}
 
 .it{position:relative;display:block;width:100%;padding:0;text-align:left;cursor:pointer;border-radius:var(--r);overflow:hidden;background:#0d1d30;border:0;
@@ -62,7 +65,13 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 .nm{position:absolute;left:10px;right:10px;bottom:8px;z-index:3;font-weight:800;font-size:14px;line-height:1.18;text-shadow:0 1px 3px #000a;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .bd{position:absolute;top:8px;left:8px;z-index:3;border-radius:8px;padding:3px 7px;font-size:11px;font-weight:800;letter-spacing:.02em;backdrop-filter:blur(6px)}
 .bd.n{background:#7cf0b0e6;color:#053a20}.bd.r{background:#bfe9ffe6;color:#08304b}.bd.y{background:#ffd166f0;color:#3a2600}.bd.s{background:#8cd7ffe6;color:#06263c}
-.star{position:absolute;top:7px;right:8px;z-index:3;font-size:15px;filter:drop-shadow(0 1px 3px #000)}
+.hrt{position:absolute;top:6px;right:6px;z-index:4;width:34px;height:34px;border-radius:50%;border:0;padding:0;display:grid;place-items:center;cursor:pointer;
+ background:#08121f73;backdrop-filter:blur(6px);transition:transform .2s,background .2s}
+.hrt svg{width:18px;height:18px;fill:none;stroke:#fff;stroke-width:2.2;transition:all .2s}
+.hrt.on{background:#ff4d7a}
+.hrt.on svg{fill:#fff;stroke:#fff}
+.hrt.pop{animation:pop .35s}
+@keyframes pop{40%{transform:scale(1.25)}}
 .info{display:flex;align-items:center;gap:6px;padding:9px 10px 10px;border-top:2px solid var(--b,#3b5f80);background:#0b1828}
 .vb{width:17px;height:17px;flex:none}
 .pr{font-weight:800;font-size:15px}
@@ -73,7 +82,10 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 .sk{border-radius:var(--r);aspect-ratio:1/1.32;background:linear-gradient(100deg,#ffffff08 30%,#ffffff14 50%,#ffffff08 70%) 0 0/200% 100%;animation:sh 1.2s infinite}
 @keyframes sh{to{background-position:-200% 0}}
 .empty{padding:48px 28px;text-align:center;color:var(--mut)}
-.empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:6px}
+.empty b{display:block;color:var(--ink);font-size:18px;margin-bottom:6px}
+.empty .ill{width:96px;height:96px;margin:0 auto 16px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(#ff4d7a33,#ff4d7a08 70%)}
+.empty .ill svg{width:44px;height:44px;fill:#ff6b91}
+.empty p{margin:0 auto;max-width:300px}
 .note{margin:28px 16px 0;color:#5f7a95;font-size:12px;text-align:center}
 #more{height:1px}
 
@@ -96,6 +108,7 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 .vbar input{flex:1;height:28px;accent-color:#8cd7ff}
 .vbar span{width:40px;text-align:right;color:var(--mut);font-size:13px;font-weight:700}
 .src{display:block;margin:6px 18px 0;color:#6f8aa5;font-size:12px;text-decoration:none}
+.src[hidden],.vbar[hidden]{display:none}
 .x{position:absolute;top:14px;right:14px;z-index:3;width:38px;height:38px;border-radius:50%;border:0;background:#08121fb0;color:#fff;font-size:18px;cursor:pointer;backdrop-filter:blur(6px)}
 .pb{padding:16px 18px 4px}
 .pb h2{margin:0;font-size:25px;line-height:1.12;font-weight:800}
@@ -104,16 +117,20 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 .tag.rar{background:var(--b);color:#08121f}
 .desc{margin:12px 0 4px;color:#c3d6ea;font-size:14.5px}
 .rows{margin:12px 0;border-radius:16px;background:var(--glass);border:1px solid var(--line)}
-.row{display:flex;justify-content:space-between;gap:12px;padding:11px 14px;font-size:14px}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;font-size:14px}
+.row svg{width:18px;height:18px;flex:none;stroke:var(--acc);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;opacity:.9}
 .row+.row{border-top:1px solid var(--line)}
 .row span{color:var(--mut)}
-.row b{text-align:right;font-weight:700}
+.row b{margin-left:auto;text-align:right;font-weight:700}
 .parts{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}
 .part{flex:none;width:78px;text-align:center;font-size:11.5px;color:var(--mut);line-height:1.25}
 .part img{width:78px;height:78px;object-fit:contain;border-radius:14px;background:#ffffff0a;border:1px solid var(--line);margin-bottom:4px}
 .btn{display:block;width:100%;height:52px;border-radius:16px;border:0;font-weight:800;font-size:16px;cursor:pointer;margin-top:10px;transition:transform .15s}
 .btn:active{transform:scale(.98)}
 .btn.p{background:linear-gradient(#a9e3ff,#7fcdf7);color:#06263c;box-shadow:0 6px 18px #8cd7ff40}
+.btn.h{background:linear-gradient(#ff7b9c,#ff4d7a);color:#fff;box-shadow:0 6px 18px #ff4d7a55}
+.btn.hon{background:#ff4d7a1f;color:#ff9ab3;border:1px solid #ff4d7a55}
+.btn svg{width:18px;height:18px;vertical-align:-3px;margin-right:6px;fill:currentColor}
 .btn.s{background:#ffffff0f;color:var(--ink);border:1px solid var(--line)}
 .lbl{color:var(--mut);font-size:13px;font-weight:700;margin:14px 0 8px}
 
@@ -132,7 +149,7 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 <nav class="tabs">
   <button class="tab on" id="tShop">Сегодня</button>
   <button class="tab" id="tAll">Каталог</button>
-  <button class="tab" id="tMine">Избранное<span id="cnt" class="cnt z">0</span></button>
+  <button class="tab" id="tMine"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.1 0 3.6 1.2 4.4 2.5h1.6c.8-1.3 2.3-2.5 4.4-2.5 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>Избранное<span id="cnt" class="cnt z">0</span></button>
 </nav>
 <div class="bar" id="bar">
   <div class="sbox">
@@ -161,6 +178,15 @@ const KINDS = [["bundle","Наборы"],["outfit","Скины"],["emote","Эм�
 const SHOP_CATS = [["all","Все"],["new","Новинки"],["back","Вернулись"], ...KINDS];
 const ALL_CATS = [["all","Все"], ...KINDS.filter(([k]) => k !== "bundle")];
 const PAGE = 48;
+const IC = {
+  heart: '<svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.1 0 3.6 1.2 4.4 2.5h1.6c.8-1.3 2.3-2.5 4.4-2.5 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>',
+  coin: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9 9.5h4.5a2 2 0 0 1 0 4H9.5m0-4v7"/></svg>',
+  clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  back: '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/></svg>',
+  repeat: '<svg viewBox="0 0 24 24"><path d="M17 2l3 3-3 3"/><path d="M4 11V9a4 4 0 0 1 4-4h12"/><path d="M7 22l-3-3 3-3"/><path d="M20 13v2a4 4 0 0 1-4 4H4"/></svg>',
+  star: '<svg viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.6 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/></svg>',
+  gem: '<svg viewBox="0 0 24 24"><path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M12 21 8 9l4-6 4 6z"/></svg>',
+};
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const DAY = 864e5;
 const dayOf = s => Date.UTC(+s.slice(0,4), +s.slice(5,7)-1, +s.slice(8,10));
@@ -220,11 +246,12 @@ function card(it, mode) {
     : '<span class="till m">' + (it.lastSeen ? "был " + fmt(dayOf(it.lastSeen), true) : "не продавался") + '</span>';
   return '<button class="it" data-id="' + esc(it.id) + '" style="--c1:' + it.c1 + ';--c2:' + it.c2 + ';--b:' + rb + ';--g:' + rb + '">' +
     '<div class="art">' + (pic ? '<img loading="lazy" decoding="async" src="' + esc(pic) + '" alt="">' : "") + badge(it, mode) +
-    (fav[it.keys[0]] ? '<span class="star">⭐</span>' : "") + '<div class="nm">' + esc(it.name) + '</div></div>' +
+    '<span class="hrt' + (fav[it.keys[0]] ? " on" : "") + '" role="button" aria-label="В избранное" data-h="1">' + IC.heart + '</span>' + '<div class="nm">' + esc(it.name) + '</div></div>' +
     '<div class="info">' + bottom + '</div></button>';
 }
 const grid = (items, mode) => '<div class="grid">' + items.map(i => card(i, mode)).join("") + '</div>';
-const sec = (title, n) => '<div class="sec">' + title + '<span>' + n + '</span></div>';
+const sec = (title, n, ico, sub) => '<div class="sec">' + (ico ? '<i>' + ico + '</i>' : "") + '<div>' + title + (sub ? '<small>' + sub + '</small>' : "") + '</div><span>' + n + '</span></div>';
+const SEC_ICO = { bundle: "🎁", outfit: "🧍", emote: "💃", pickaxe: "⛏️", glider: "🪂", backpack: "🎒", wrap: "🎨", shoe: "👟", contrail: "✨", music: "🎵", other: "📦" };
 
 // ---------- списки
 const match = (txt, q) => txt.toLowerCase().includes(q);
@@ -256,8 +283,9 @@ function render() {
   if (view === "mine") {
     const l = Object.values(fav).map(f => { const s = inShop.get(f.id); return s ? { ...fromShop(s), id: f.id } : { id: f.id, keys: [f.id], name: f.name, thumb: f.img, lastSeen: f.last, c1: f.c1 || "#22456a", c2: f.c2 || "#11243b", rb: f.c1 }; });
     const now = l.filter(i => inShop.has(i.id)), wait = l.filter(i => !inShop.has(i.id));
-    list.innerHTML = (now.length ? sec("Уже в магазине", now.length) + grid(now, "fav") : "") + (wait.length ? sec("Ждём в магазине", wait.length) + grid(wait, "fav") : "");
-    if (!l.length) { empty.hidden = false; empty.innerHTML = "<b>Здесь пока пусто</b>Открой любой предмет и нажми «В избранное» — бот напишет, как только он появится в магазине."; }
+    list.innerHTML = (now.length ? sec("Уже в магазине", now.length, "🛒", "можно покупать прямо сейчас") + grid(now, "fav") : "") +
+      (wait.length ? sec("Ждём в магазине", wait.length, "⏳", "бот напишет, когда появятся") + grid(wait, "fav") : "");
+    if (!l.length) { empty.hidden = false; empty.innerHTML = '<div class="ill">' + IC.heart + '</div><b>В избранном пусто</b><p>Нажми на сердечко на любом предмете — бот напишет тебе, как только он появится в магазине.</p>'; }
     return;
   }
   if (view === "all") {
@@ -269,14 +297,15 @@ function render() {
     if (cat === "all" && !query.trim()) {
       const parts = [], used = new Set();
       const add = (t, arr) => { if (arr.length) { parts.push(sec(t, arr.length) + grid(arr, "shop")); arr.forEach(i => used.add(i)); } };
-      add("Новинки", l.filter(i => i.isNew));
-      add("Вернулись после перерыва", l.filter(i => i.returned).sort((a, b) => b.days - a.days));
-      for (const [k, t] of KINDS) add(t, l.filter(i => i.kind === k && !used.has(i)));
+      const add2 = (t, arr, ico, sub) => { if (arr.length) { parts.push(sec(t, arr.length, ico, sub) + grid(arr, "shop")); arr.forEach(i => used.add(i)); } };
+      add2("Новинки", l.filter(i => i.isNew), "🆕", "впервые в магазине");
+      add2("Вернулись", l.filter(i => i.returned).sort((a, b) => b.days - a.days), "🔁", "давно не было в магазине");
+      for (const [k, t] of KINDS) add2(t, l.filter(i => i.kind === k && !used.has(i)), SEC_ICO[k]);
       list.innerHTML = parts.join("");
     } else list.innerHTML = l.length ? grid(l, "shop") : "";
     current = l;
   }
-  if (!current.length) { empty.hidden = false; empty.innerHTML = "<b>Ничего не нашлось</b>Попробуй другое название или фильтр."; }
+  if (!current.length) { empty.hidden = false; empty.innerHTML = "<b>Ничего не нашлось</b><p>Попробуй другое название или фильтр.</p>"; }
 }
 
 // плавное появление картинок
@@ -300,12 +329,12 @@ function openItem(it) {
   const last = s ? s.lastSeen : it.lastSeen, times = (s ? s.times : it.times) || 0;
   const rows = [];
   if (s) {
-    rows.push(["Цена", s.price + " В-баксов" + (s.regular > s.price ? " (было " + s.regular + ")" : "")]);
-    if (s.out) rows.push(["В магазине до", fmt(Date.parse(s.out), true)]);
+    rows.push([IC.coin, "Цена", s.price + " В-баксов" + (s.regular > s.price ? " (было " + s.regular + ")" : "")]);
+    if (s.out) rows.push([IC.clock, "В магазине до", fmt(Date.parse(s.out), true)]);
   }
-  rows.push(["Последний раз", s && s.isNew ? "впервые сегодня" : s && s.days === 1 ? "вчера" : last ? fmt(dayOf(last), true) + (s && s.days ? " · " + s.days + " дн. назад" : "") : "не продавался"]);
-  rows.push(["Был в магазине", times + " " + plural(times, "раз", "раза", "раз")]);
-  if (it.firstSeen || (s && s.firstSeen)) rows.push(["Впервые", fmt(dayOf(it.firstSeen || s.firstSeen), true)]);
+  rows.push([IC.back, "Последний раз", s && s.isNew ? "впервые сегодня" : s && s.days === 1 ? "вчера" : last ? fmt(dayOf(last), true) + (s && s.days ? " · " + s.days + " " + plural(s.days, "день", "дня", "дней") + " назад" : "") : "не продавался"]);
+  rows.push([IC.repeat, "Был в магазине", times ? times + " " + plural(times, "раз", "раза", "раз") : "ни разу"]);
+  if (it.firstSeen || (s && s.firstSeen)) rows.push([IC.star, "Впервые в магазине", fmt(dayOf(it.firstSeen || s.firstSeen), true)]);
   const tags = [it.rarity ? '<span class="tag rar">' + esc(it.rarity) + '</span>' : "", it.typeName ? '<span class="tag">' + esc(it.typeName) + '</span>' : "", it.set ? '<span class="tag">' + esc(it.set) + '</span>' : ""].join("");
   const on = () => !!fav[key];
   $("pane").innerHTML =
@@ -315,22 +344,16 @@ function openItem(it) {
     '<a class="src" id="src" hidden target="_blank" rel="noopener">видео: fortnite.gg</a>' +
     '<div class="pb" style="--b:' + rb + '"><h2>' + esc(it.name) + '</h2><div class="tags">' + tags + '</div>' +
     (it.desc ? '<p class="desc">' + esc(it.desc) + '</p>' : "") +
-    '<div class="rows">' + rows.map(([a, b]) => '<div class="row"><span>' + a + '</span><b>' + esc(b) + '</b></div>').join("") + '</div>' +
+    '<div class="rows">' + rows.map(([ic, a, b]) => '<div class="row">' + ic + '<span>' + a + '</span><b>' + esc(b) + '</b></div>').join("") + '</div>' +
     (it.parts && it.parts.length ? '<div class="lbl">В наборе</div><div class="parts">' + it.parts.map(p => '<div class="part">' + (p.img ? '<img loading="lazy" src="' + esc(p.img) + '" alt="">' : "") + '<div>' + esc(p.name) + '</div></div>').join("") + '</div>' : "") +
     '<button class="btn p" id="w"></button><button class="btn s" id="share">Поделиться с другом</button></div>';
-  const paint = () => { const b = $("w"); b.className = "btn " + (on() ? "s" : "p"); b.textContent = on() ? "★ В избранном — убрать" : (s ? "☆ В избранное" : "☆ В избранное — сообщить, когда появится"); };
+  const paint = () => { const b = $("w"); b.className = "btn " + (on() ? "hon" : "h"); b.innerHTML = IC.heart + (on() ? "В избранном" : (s ? "Добавить в избранное" : "Сообщить, когда появится")); };
   paint();
   $("sheet").classList.add("on"); $("sheet").setAttribute("aria-hidden", "false");
   $("pane").scrollTop = 0;
   $("x").onclick = close;
   $("w").onclick = () => {
-    if (on()) { delete fav[key]; toast("Убрано из избранного"); haptic("warning"); }
-    else {
-      fav[key] = { id: key, key, name: it.name, img: it.thumb || it.img, last, c1: it.c1, c2: it.c2 };
-      askWrite(); haptic("success");
-      toast(s ? "Добавлено — он уже в магазине" : "Готово! Напишем, когда «" + it.name + "» появится");
-    }
-    saveFav(); paint(); render();
+    toggleFav(it, s, last); paint();
   };
   $("share").onclick = () => {
     const text = s ? it.name + " сейчас в магазине Fortnite за " + s.price + " В-баксов" + (s.out ? ", до " + fmt(Date.parse(s.out)) : "")
@@ -383,6 +406,25 @@ function close() {
 let tt;
 function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => el.classList.remove("on"), 2300); }
 
+function toggleFav(it, s, last) {
+  const key = it.keys[0];
+  if (fav[key]) { delete fav[key]; toast("Убрано из избранного"); haptic("warning"); }
+  else {
+    fav[key] = { id: key, key, name: it.name, img: it.thumb || it.img, last, c1: it.c1, c2: it.c2 };
+    askWrite(); haptic("success");
+    toast(s ? "❤ В избранном — он уже в магазине" : "❤ Напишем, когда «" + it.name + "» появится");
+  }
+  saveFav(); render();
+}
+function itemById(id) {
+  const s = shop.find(i => i.id === id) || inShop.get(id);
+  if (s) return fromShop(s);
+  const c = catalog && catalog.find(x => x.id === id);
+  if (c) return fromCat(c);
+  const f = fav[id];
+  return f ? { id, keys: [id], name: f.name, thumb: f.img, img: f.img, lastSeen: f.last, c1: f.c1 || "#22456a", c2: f.c2 || "#11243b" } : null;
+}
+
 // ---------- события
 $("shade").onclick = close;
 document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
@@ -392,6 +434,14 @@ $("chips").addEventListener("click", e => { const b = e.target.closest(".chip");
 $("list").addEventListener("click", e => {
   const b = e.target.closest(".it"); if (!b) return;
   const id = b.dataset.id;
+  if (e.target.closest(".hrt")) {
+    e.stopPropagation();
+    const it = itemById(id); if (!it) return;
+    const s = inShop.get(it.keys[0]) || (it.price ? it : null);
+    toggleFav(it, s, s ? s.lastSeen : it.lastSeen);
+    const h = $("list").querySelector('.it[data-id="' + CSS.escape(id) + '"] .hrt'); if (h) h.classList.add("pop");
+    return;
+  }
   const s = shop.find(i => i.id === id) || inShop.get(id);
   if (s) return openItem(fromShop(s));
   const c = catalog && catalog.find(x => x.id === id);
