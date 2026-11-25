@@ -35,6 +35,11 @@ jobs:
           path: site/img/c2
           key: icons2-${{ github.run_id }}
           restore-keys: icons2-
+      - uses: actions/cache@v4
+        with:
+          path: ggmap
+          key: ggmap-${{ github.run_id }}
+          restore-keys: ggmap-
       - name: Build data
         run: |
           python build_data.py
