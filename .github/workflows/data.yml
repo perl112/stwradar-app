@@ -1,0 +1,37 @@
+name: Update data
+
+on:
+  schedule:
+    - cron: "3 0 * * *"
+    - cron: "15 0 * * *"
+    - cron: "40 0 * * *"
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data
+  cancel-in-progress: false
+
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build data
+        run: python build_data.py
+      - name: Commit
+        run: |
+          git config user.name "stwradar-bot"
+          git config user.email "stwradar-bot@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet && echo "данные не изменились" && exit 0
+          git commit -m "data $(date -u +%F)"
+          git pull --rebase
+          git push
