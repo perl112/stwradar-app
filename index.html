@@ -204,6 +204,11 @@ body.full header{padding-top:calc(16px + var(--tg-safe-area-inset-top,0px) + var
 .prow .pr-t em{color:color-mix(in srgb,var(--pc) 55%,#fff)}
 .phead{--pc:#ffd166}.part0{box-shadow:0 0 0 2px var(--pc),0 16px 40px -10px var(--pc)!important}
 .pprice{background:color-mix(in srgb,var(--pc) 20%,transparent)!important;color:color-mix(in srgb,var(--pc) 50%,#fff)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--pc) 60%,transparent)!important}
+.vbar button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.stov{position:absolute;left:12px;bottom:12px;z-index:2;width:30%;max-width:150px;border-radius:14px;overflow:hidden;background:#0a1626e6;box-shadow:0 0 0 2px var(--b,#8cd7ff),0 10px 24px -8px #000;animation:stin .25s ease}
+.stov img{display:block;width:100%;aspect-ratio:1;object-fit:cover}
+.stov span{display:block;padding:5px 7px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;text-align:center;color:#fff}
+@keyframes stin{from{opacity:0;transform:translateY(8px) scale(.95)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
@@ -239,7 +244,7 @@ body.full header{padding-top:calc(16px + var(--tg-safe-area-inset-top,0px) + var
 const tg = window.Telegram && Telegram.WebApp;
 const inTg = !!(tg && tg.initData);
 // ---------- самообновление: телега любит держать старую версию страницы в кэше
-const BUILD = "2026-11-25f";
+const BUILD = "2026-11-25g";
 fetch("index.html?nocache=" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(t => {
   const m = t.match(/const BUILD = "([^"]+)"/);
   if (m && m[1] !== BUILD) {
@@ -485,9 +490,16 @@ function loadExtras(it, key) {
         $("stl" + g).textContent = (st[g].ch || "Стиль").toUpperCase() + " · " + opt.n;
         const big = $("pane").querySelector(".big"), img = big.querySelector("img"), v = big.querySelector("video");
         haptic("sel");
-        if (o === 0 && g === 0 && v) { big.classList.add("vid"); v.play().catch(() => {}); if (img) img.src = it.img; return; }
-        if (v) { v.pause(); big.classList.remove("vid"); }
-        if (img) img.src = opt.i; else big.insertAdjacentHTML("afterbegin", '<img src="' + esc(opt.i) + '" alt="">');
+        let ov = big.querySelector(".stov");
+        const base = [...$("sty").querySelectorAll(".st.on")].every(x => x.dataset.o === "0");
+        if (v && big.classList.contains("vid")) {
+          // видео есть только для основного стиля: оно крутится дальше, выбранный стиль — карточкой в углу
+          if (base) { if (ov) ov.remove(); return; }
+          if (!ov) { big.insertAdjacentHTML("beforeend", '<div class="stov"><img alt=""><span></span></div>'); ov = big.querySelector(".stov"); }
+          ov.querySelector("img").src = opt.i; ov.querySelector("span").textContent = opt.n;
+          return;
+        }
+        if (img) img.src = base ? it.img : opt.i; else big.insertAdjacentHTML("afterbegin", '<img src="' + esc(opt.i) + '" alt="">');
       };
     });
   // предметы из того же набора (сета) и платный набор, где он есть
@@ -530,11 +542,12 @@ function openItem(it) {
   if (it.intro) rows.push([IC.gem, "Появился в игре", it.intro]);
   const srcs = (it.src && it.src.length ? it.src : (times ? ["Магазин"] : []));
   const tags = [it.rarity ? '<span class="tag rar">' + esc(it.rarity) + '</span>' : "", it.typeName ? '<span class="tag">' + esc(it.typeName) + '</span>' : "", it.set ? '<button class="tag tg-l" id="settag">' + esc(it.set) + ' ›</button>' : ""].join("");
+  curSound = it.kind === "emote" || it.kind === "music";
   const on = () => !!fav[key];
   $("pane").innerHTML =
     '<div class="grab"></div><div class="big" style="--c1:' + it.c1 + ';--c2:' + it.c2 + ';--b:' + rb + '">' + (it.img ? '<img src="' + esc(it.img) + '" alt="">' : "") +
     '<button class="x" id="x" aria-label="Закрыть">✕</button></div>' +
-    '<div class="vbar" id="vbar"><button id="mute" aria-label="Звук">🔈</button><input id="vr" type="range" min="0" max="100" step="5" aria-label="Громкость"><span id="vv"></span></div>' +
+    '<div class="vbar" id="vbar"><button id="mute" aria-label="Звук">' + SND_ON + '</button><input id="vr" type="range" min="0" max="100" step="5" aria-label="Громкость"><span id="vv"></span></div>' +
     '<a class="src" id="src" hidden target="_blank" rel="noopener">видео: fortnite.gg</a><div class="sty" id="sty" style="--b:' + rb + '"></div>' +
     '<div class="pb" style="--b:' + rb + '"><h2>' + esc(it.name) + '</h2><div class="tags">' + tags + '</div>' +
     (it.desc ? '<p class="desc">' + esc(it.desc) + '</p>' : "") +
@@ -564,7 +577,9 @@ function openItem(it) {
 }
 
 // ---------- видео предмета (fortnite.gg, с их водяным знаком)
-let vol = 50, vidToken = 0;
+let vol = 50, vidToken = 0, curSound = false;
+const SND_ON = '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4zM16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/></svg>';
+const SND_OFF = '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4zM17 9l5 6M22 9l-5 6"/></svg>';
 try { const v = localStorage.getItem("stw_vol"); if (v !== null) vol = +v; } catch (e) {}
 const vidCache = {};
 let ggMap = null;
@@ -587,11 +602,12 @@ function loadVideo2(id, my) {
     v.src = d.video[0];
     v.onerror = () => { if (++i < d.video.length) v.src = d.video[i]; else v.remove(); };
     v.onloadeddata = () => {
-      big.classList.add("vid"); $("vbar").classList.add("on");
+      big.classList.add("vid"); if (curSound) $("vbar").classList.add("on");
       if (d.source) { $("src").href = d.source; $("src").hidden = false; }
     };
     v.onclick = () => v.paused ? v.play() : v.pause();
     big.insertBefore(v, big.querySelector(".x"));
+    if (!curSound) { v.muted = true; v.play().catch(() => {}); return; }   // осмотр скина/кирки и т.п. — без звука
     setVolUI();
     v.volume = vol / 100; v.muted = vol === 0;
     v.play().catch(() => { v.muted = true; setVolUI(true); v.play().catch(() => {}); });
@@ -601,7 +617,7 @@ function loadVideo2(id, my) {
 }
 function setVolUI(muted) {
   if (!$("vr")) return;
-  $("vr").value = muted ? 0 : vol; $("vv").textContent = (muted ? 0 : vol) + "%"; $("mute").textContent = muted || !vol ? "🔇" : "🔊";
+  $("vr").value = muted ? 0 : vol; $("vv").textContent = (muted ? 0 : vol) + "%"; $("mute").innerHTML = muted || !vol ? SND_OFF : SND_ON;
 }
 function close() {
   vidToken++;
