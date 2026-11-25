@@ -1,12 +1,471 @@
 [
-  {
-    "name": "Золотая тактика",
-    "items": ["точное название скина", "точное название рюкзака"],
-    "vbucks": 600,
-    "usd": 4.49,
-    "try": "170",
-    "regions": "все регионы",
-    "till": "2027-01-07",
-    "active": true
-  }
+ {
+  "name": "Золотая тактика (Golden Tactical Pack)",
+  "items": [
+   "Treasured Aura",
+   "Goldy Duffel",
+   "Gleaming Batblade",
+   "Gilded Verge",
+   "Villainous Vault",
+   "Haute Hatchet",
+   "Golden Focus",
+   "Cash 'n Chucks",
+   "Wealth Fixation"
+  ],
+  "usd": 16.99,
+  "regions": "PlayStation, Xbox, Nintendo Switch, Epic Games Store",
+  "note": "3 экипировки (со стилем LEGO), 3 украшения на спину и 3 кирки.",
+  "active": true
+ },
+ {
+  "name": "Ледяные легенды (Frozen Legends Pack)",
+  "items": [
+   "Frozen Raven",
+   "Frozen Iron Cage",
+   "Frozen Red Knight",
+   "Frozen Red Shield",
+   "Frozen Love Ranger",
+   "Frozen Love Wings"
+  ],
+  "usd": 16.99,
+  "regions": "PlayStation, Xbox, Nintendo Switch, Epic Games Store",
+  "note": "3 экипировки (со стилем LEGO) и 3 украшения на спину.",
+  "active": true
+ },
+ {
+  "name": "Bunny Mummy Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Pond Protector Pack",
+  "active": false
+ },
+ {
+  "name": "Perfected Nature Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Retrowave Style Pack",
+  "active": false
+ },
+ {
+  "name": "Sound Check Pack",
+  "active": false
+ },
+ {
+  "name": "Shaka Surfin' Pack",
+  "active": false
+ },
+ {
+  "name": "Crowned Combatant Pack",
+  "active": false
+ },
+ {
+  "name": "Pixelle Starter Pack",
+  "active": false
+ },
+ {
+  "name": "Supernova Academy Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Bee Positive Pack",
+  "active": false
+ },
+ {
+  "name": "Hexed & Haunted Pack",
+  "active": false
+ },
+ {
+  "name": "Luminary Hypatia Starter Pack",
+  "active": false
+ },
+ {
+  "name": "Ninja Sarah Pack",
+  "active": false
+ },
+ {
+  "name": "Graffiti Revolution Pack",
+  "active": false
+ },
+ {
+  "name": "Xerick Starter Pack",
+  "active": false
+ },
+ {
+  "name": "Stayin' Solo Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Raptor Royale Pack",
+  "active": false
+ },
+ {
+  "name": "Cuddle Buns Pack",
+  "active": false
+ },
+ {
+  "name": "Let's Hunt Vampires Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Storm-Wild Raven Starter Pack",
+  "active": false
+ },
+ {
+  "name": "Darkest Grumblings Pack",
+  "active": false
+ },
+ {
+  "name": "Ghoul Punk Pack",
+  "active": false
+ },
+ {
+  "name": "Sun & Scales Pack",
+  "active": false
+ },
+ {
+  "name": "Rocket Racing Lockjaw Starter Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Natural Constructor Pack",
+  "active": false
+ },
+ {
+  "name": "Crimson Warden Pack",
+  "active": false
+ },
+ {
+  "name": "Shrieking Star Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Rocket Racing Fuse Starter Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Guardians of the Galaxy Pack",
+  "active": false
+ },
+ {
+  "name": "Vinderman 2.0 Pack",
+  "active": false
+ },
+ {
+  "name": "Perfect Execution Pack",
+  "active": false
+ },
+ {
+  "name": "Operation Brite Star Pack",
+  "active": false
+ },
+ {
+  "name": "Voidlands Exile Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Gilded Elites Pack",
+  "active": false
+ },
+ {
+  "name": "Rogue Scout Pack",
+  "active": false
+ },
+ {
+  "name": "Chill Vibez Pack",
+  "active": false
+ },
+ {
+  "name": "Save the World Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Infinite Drift Pack",
+  "active": false
+ },
+ {
+  "name": "Heartbreak Royale Pack",
+  "active": false
+ },
+ {
+  "name": "Transformers Pack",
+  "active": false
+ },
+ {
+  "name": "Mainframe Throwback Quest Pack",
+  "active": false
+ },
+ {
+  "name": "The High Stakes Club Pack",
+  "active": false
+ },
+ {
+  "name": "Extinction Code Pack",
+  "active": false
+ },
+ {
+  "name": "Untask'd Courier Pack",
+  "active": false
+ },
+ {
+  "name": "Wish, Set, Match Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Full Clip Pack",
+  "active": false
+ },
+ {
+  "name": "Intrepid Engines Pack",
+  "active": false
+ },
+ {
+  "name": "True Colors Pack",
+  "active": false
+ },
+ {
+  "name": "Coldest Circles Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Koi Kingdom Pack",
+  "active": false
+ },
+ {
+  "name": "Miss Clique Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Cross Comms Pack",
+  "active": false
+ },
+ {
+  "name": "Ned the Eternal Pack",
+  "active": false
+ },
+ {
+  "name": "Strange Transmissions Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Bioluminescence Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Metalcore Mina Pack",
+  "active": false
+ },
+ {
+  "name": "Fully Realized Pack",
+  "active": false
+ },
+ {
+  "name": "Saint Academy Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Anime Legends Pack",
+  "active": false
+ },
+ {
+  "name": "Agency Renegades Pack",
+  "active": false
+ },
+ {
+  "name": "Checkered Past Pack",
+  "active": false
+ },
+ {
+  "name": "Crossmark Operative Pack",
+  "active": false
+ },
+ {
+  "name": "Sapphire Nagiri Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Rogue Alias Pack",
+  "active": false
+ },
+ {
+  "name": "Goldenbane Guardian Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Witching Wing Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Blizzabelle Pack",
+  "active": false
+ },
+ {
+  "name": "Voidlander Pack",
+  "active": false
+ },
+ {
+  "name": "Robo-Kevin Pack",
+  "active": false
+ },
+ {
+  "name": "Tech Future Pack",
+  "active": false
+ },
+ {
+  "name": "Minty Legends Pack",
+  "active": false
+ },
+ {
+  "name": "The Lars Pack",
+  "active": false
+ },
+ {
+  "name": "Graveyard Drift Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Fallen Light Pack",
+  "active": false
+ },
+ {
+  "name": "Vox Hunter's Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Magma Masters Pack",
+  "active": false
+ },
+ {
+  "name": "Dizzie's Domain Pack",
+  "active": false
+ },
+ {
+  "name": "Street Shadows Challenge Pack",
+  "active": false
+ },
+ {
+  "name": "Snakes & Stones Challenge Pack",
+  "active": false
+ },
+ {
+  "name": "Hazard Platoon Pack",
+  "active": false
+ },
+ {
+  "name": "Golden Touch Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Marvel Royalty & Warriors Pack",
+  "active": false
+ },
+ {
+  "name": "Diamond Diva Pack",
+  "active": false
+ },
+ {
+  "name": "The Last Laugh Bundle",
+  "active": false
+ },
+ {
+  "name": "Throwback Axe",
+  "active": false
+ },
+ {
+  "name": "Skull Squad Pack",
+  "active": false
+ },
+ {
+  "name": "Corrupted Legends Pack",
+  "active": false
+ },
+ {
+  "name": "Samurai Scrapper Pack",
+  "active": false
+ },
+ {
+  "name": "The Street Serpent Pack",
+  "active": false
+ },
+ {
+  "name": "Derby Dynamo Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Summer Legends Pack",
+  "active": false
+ },
+ {
+  "name": "Yellowjacket Pack",
+  "active": false
+ },
+ {
+  "name": "Bassassin Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Iris Pack",
+  "active": false
+ },
+ {
+  "name": "Polar Legends Pack",
+  "active": false
+ },
+ {
+  "name": "Darkfire Bundle",
+  "active": false
+ },
+ {
+  "name": "The Wavebreaker Pack",
+  "active": false
+ },
+ {
+  "name": "The Final Reckoning Pack",
+  "active": false
+ },
+ {
+  "name": "P-1000 Challenge Pack",
+  "active": false
+ },
+ {
+  "name": "Batman Caped Crusader Pack",
+  "active": false
+ },
+ {
+  "name": "Dark Reflections Pack",
+  "active": false
+ },
+ {
+  "name": "Red Strike Pack",
+  "active": false
+ },
+ {
+  "name": "Breakpoint's Quest Pack",
+  "active": false
+ },
+ {
+  "name": "Shadows Rising Pack",
+  "active": false
+ },
+ {
+  "name": "The Wilde Pack",
+  "active": false
+ },
+ {
+  "name": "Inferno's Challenge Pack",
+  "active": false
+ },
+ {
+  "name": "Lava Legends Pack",
+  "active": false
+ },
+ {
+  "name": "The Laguna Pack",
+  "active": false
+ },
+ {
+  "name": "Fallen Love Ranger Quest Pack",
+  "active": false
+ }
 ]
