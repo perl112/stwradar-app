@@ -4,6 +4,7 @@ import io
 import json
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
@@ -217,6 +218,67 @@ def build_catalog() -> list:
     return out
 
 
+# ---------- номера предметов на fortnite.gg (для видео с их водяным знаком)
+# как у FNPacks: по одному запросу на предмет, только для сегодняшнего магазина, найденное запоминаем навсегда
+GG_MAP = Path("ggmap/ggmap.json")          # хранится в кэше гитхаба между запусками
+GG_UA = "StormRadarBot/1.0 (+https://t.me/stwradar)"
+GG_PER_RUN = 400
+
+
+def gg_lookup(cid: str):
+    req = urllib.request.Request("https://fortnite.gg/api/item?id=" + urllib.parse.quote(cid),
+                                 headers={"User-Agent": GG_UA, "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:
+            text = r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return ("blocked", e.code)
+    except Exception as e:
+        return ("error", type(e).__name__)
+    import re
+    try:
+        o = json.loads(text)
+        for c in (o.get("id") if isinstance(o, dict) else None,
+                  (o.get("item") or {}).get("id") if isinstance(o, dict) else None,
+                  (o.get("data") or {}).get("id") if isinstance(o, dict) else None):
+            if c is not None and str(c).isdigit():
+                return ("ok", int(c))
+    except Exception:
+        pass
+    m = re.search(r"items/(\d{1,7})/", text) or re.search(r'"id"\s*:\s*"?(\d{1,7})', text)
+    return ("ok", int(m.group(1))) if m else ("none", None)
+
+
+def build_videos(shop: dict) -> dict:
+    try:
+        mp = json.loads(GG_MAP.read_text(encoding="utf-8"))
+    except Exception:
+        mp = {}
+    ids = []
+    for it in shop["items"]:
+        for k in it["keys"]:
+            if k and k not in mp and k not in ids:
+                ids.append(k)
+    blocked = checked = 0
+    for cid in ids[:GG_PER_RUN]:
+        status, val = gg_lookup(cid)
+        checked += 1
+        if status == "ok":
+            mp[cid] = val
+        elif status == "none":
+            mp[cid] = 0           # у fortnite.gg нет такого предмета — больше не спрашиваем
+        elif status == "blocked":
+            blocked += 1
+            print(f"fortnite.gg не пустил запрос ({val}) — останавливаюсь, не долбим их сервер")
+            break
+        time.sleep(1)             # по одному запросу в секунду
+    GG_MAP.parent.mkdir(parents=True, exist_ok=True)
+    GG_MAP.write_text(json.dumps(mp), encoding="utf-8")
+    videos = {k: v for k, v in mp.items() if v}
+    print(f"номера fortnite.gg: всего {len(videos)}, проверено сейчас {checked}, блокировок {blocked}")
+    return videos
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     # старые картинки магазина не копим — только сегодняшние
@@ -225,6 +287,12 @@ def main() -> None:
     shop = build_shop()
     (OUT / "shop.json").write_text(json.dumps(shop, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"магазин: {len(shop['items'])} предметов за {shop['date']}")
+    try:
+        vids = build_videos(shop)
+    except Exception as e:
+        print(f"видео fortnite.gg: {type(e).__name__}: {e}")
+        vids = {}
+    (OUT / "videos.json").write_text(json.dumps(vids, separators=(",", ":")), encoding="utf-8")
     cat = build_catalog()
     (OUT / "catalog.json").write_text(json.dumps(cat, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"каталог: {len(cat)} предметов")
