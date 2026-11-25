@@ -12,7 +12,7 @@ from pathlib import Path
 API = "https://fortnite-api.com/v2"
 OUT = Path("site/data")
 IMG = Path("site/img")
-SHOP_PX, CAT_PX = 360, 256
+SHOP_PX, CAT_PX = 512, 320
 CAT_PER_RUN = 3000   # сколько новых иконок каталога качать за один запуск   # размеры картинок для витрины и каталога
 KNOWN = {"outfit", "emote", "pickaxe", "glider", "backpack", "wrap", "shoe", "contrail", "music", "loadingscreen",
          "spray", "emoji", "pet", "petcarrier", "toy"}
@@ -37,6 +37,32 @@ def col(h: str | None) -> str:
     return "#" + h[:6] if len(h) >= 6 else "#3b5f80"
 
 
+# цвета редкостей как в игре: (верх градиента, низ градиента)
+RARITY = {
+    "common": ("#9a9a9a", "#4c4c4c"),
+    "uncommon": ("#69bb1e", "#1c5a12"),
+    "rare": ("#3dc8f8", "#135296"),
+    "epic": ("#c359ff", "#4a1f86"),
+    "legendary": ("#ea8d23", "#7a3416"),
+    "mythic": ("#ffd84a", "#9c7420"),
+    "exotic": ("#76d6e3", "#2f7b86"),
+    "transcendent": ("#ff4f7d", "#7a1534"),
+}
+
+
+def rarity_colors(obj: dict) -> tuple[str, str, str]:
+    """цвета карточки по редкости или серии (Marvel, Icon, DC...): фон сверху, фон снизу, рамка"""
+    ser = obj.get("series") or {}
+    cols = [c for c in (ser.get("colors") or []) if isinstance(c, str) and len(c) >= 6]
+    if cols:
+        top = "#" + cols[0][:6]
+        bot = "#" + (cols[2] if len(cols) > 2 else cols[-1])[:6]
+        return top, bot, top
+    r = ((obj.get("rarity") or {}).get("value") or "").lower()
+    top, bot = RARITY.get(r, RARITY["common"])
+    return top, bot, top
+
+
 def kind_of(t: str) -> str:
     return t if t in KNOWN else "other"
 
@@ -57,7 +83,7 @@ def fetch_img(url: str, path: Path, px: int) -> bool:
                 im = Image.open(io.BytesIO(r.read())).convert("RGBA")
             im.thumbnail((px, px), Image.LANCZOS)
             path.parent.mkdir(parents=True, exist_ok=True)
-            im.save(path, "WEBP", quality=78, method=4)
+            im.save(path, "WEBP", quality=86, method=6)
             return True
         except urllib.error.HTTPError as e:
             if e.code in (429, 500, 502, 503, 504) and attempt < 3:
@@ -112,8 +138,9 @@ def build_shop() -> dict:
             "kind": t if t == "bundle" else kind_of(t),
             "typeName": "Набор" if e.get("bundle") else (first.get("type") or {}).get("displayValue", ""),
             "desc": first.get("description") or "",
-            "rarity": (first.get("rarity") or {}).get("displayValue", ""),
+            "rarity": (first.get("series") or {}).get("value") or (first.get("rarity") or {}).get("displayValue", ""),
             "set": (first.get("set") or {}).get("text", ""),
+            "rb": rarity_colors(first)[2],
             "price": e.get("finalPrice"), "regular": e.get("regularPrice"),
             "out": e.get("outDate"),
             "img": (nda[0]["image"] if nda else None) or imgs.get("featured") or imgs.get("icon") or "",
@@ -136,7 +163,7 @@ def build_shop() -> dict:
             jobs.append((it["img"], p, SHOP_PX)); links.append((it, "img", it["img"], p))
         for part in it["parts"]:
             if part.get("img"):
-                p = IMG / "c" / f"{safe(part['id'])}.webp"
+                p = IMG / "c2" / f"{safe(part['id'])}.webp"
                 jobs.append((part["img"], p, CAT_PX)); links.append((part, "img", part["img"], p))
     vb = d.get("vbuckIcon") or ""
     vbp = IMG / "vbuck.webp"
@@ -162,7 +189,8 @@ def build_catalog() -> list:
         out.append({
             "id": c["id"], "n": c["name"], "k": kind_of((c.get("type") or {}).get("value", "")),
             "t": (c.get("type") or {}).get("displayValue", ""),
-            "r": (c.get("rarity") or {}).get("displayValue", ""),
+            "r": (c.get("series") or {}).get("value") or (c.get("rarity") or {}).get("displayValue", ""),
+            "c1": rarity_colors(c)[0], "c2": rarity_colors(c)[1],
             "s": (c.get("set") or {}).get("text", ""),
             "d": c.get("description") or "",
             "i": icon, "b": imgs.get("icon") or icon,
@@ -176,13 +204,13 @@ def build_catalog() -> list:
     # остальные пока по оригинальной ссылке; уже скачанные лежат в кэше гитхаба
     jobs = []
     for x in out:
-        p = IMG / "c" / f"{safe(x['id'])}.webp"
+        p = IMG / "c2" / f"{safe(x['id'])}.webp"
         if not p.exists() and len(jobs) < CAT_PER_RUN:
             jobs.append((x["i"], p, CAT_PX))
     mirror(jobs)
     have = 0
     for x in out:
-        p = IMG / "c" / f"{safe(x['id'])}.webp"
+        p = IMG / "c2" / f"{safe(x['id'])}.webp"
         x["i"] = x["b"] = local_or_remote(x["i"], p)
         have += p.exists()
     print(f"иконки каталога: {have} из {len(out)} уже свои")
