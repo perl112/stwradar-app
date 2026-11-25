@@ -143,6 +143,18 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#eaf7ff;color:#06263c;font-weight:700;padding:12px 18px;border-radius:14px;z-index:30;opacity:0;pointer-events:none;transition:all .25s;max-width:90vw;text-align:center;box-shadow:0 10px 30px #0008}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media(max-width:430px){.tab{font-size:13px;padding:9px 3px}.tab svg{display:none}}
+.pk{display:block;width:100%;text-align:left;padding:0;border:0;cursor:pointer;color:var(--ink);font:inherit;border-radius:var(--r);overflow:hidden;background:#0d1d30;box-shadow:0 0 0 1.5px #ffd166,0 8px 22px -10px #ffd16688;margin-bottom:12px}
+.pk.off{box-shadow:0 0 0 1.5px #ffffff26;filter:saturate(.6)}
+.pk .row1{display:flex;gap:10px;padding:12px;background:radial-gradient(120% 120% at 0 0,#ffd16633,transparent 60%)}
+.pk .ics{display:flex;gap:6px;flex:none}
+.pk .ics img{width:64px;height:64px;object-fit:contain;border-radius:12px;background:#ffffff0d}
+.pk h3{margin:0 0 4px;font-size:17px;line-height:1.2}
+.pk .meta{color:var(--mut);font-size:13px}
+.pk .bot{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px solid var(--line);background:#0b1828}
+.pill{border-radius:9px;padding:4px 9px;font-size:12.5px;font-weight:800;background:#ffffff10;color:var(--ink)}
+.pill.g{background:#ffd166;color:#3a2600}
+.pk-wrap{padding:0 16px}
 @media(max-width:380px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0 12px}.sec{margin-inline:12px}.tab{font-size:13px}}
 </style>
 </head>
@@ -155,6 +167,7 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 <nav class="tabs">
   <button class="tab on" id="tShop">Сегодня</button>
   <button class="tab" id="tAll">Каталог</button>
+  <button class="tab" id="tPacks">Наборы</button>
   <button class="tab" id="tMine"><svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.1 0 3.6 1.2 4.4 2.5h1.6c.8-1.3 2.3-2.5 4.4-2.5 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z"/></svg>Избранное<span id="cnt" class="cnt z">0</span></button>
 </nav>
 <div class="bar" id="bar">
@@ -201,6 +214,7 @@ const plural = (n, a, b, c) => { const m = n%10, h = n%100; return m==1&&h!=11 ?
 const $ = id => document.getElementById(id);
 const haptic = t => { try { inTg && tg.HapticFeedback && (t === "sel" ? tg.HapticFeedback.selectionChanged() : tg.HapticFeedback.notificationOccurred(t)); } catch (e) {} };
 
+let packs = null;
 let shop = [], vbIcon = "", today = Date.now(), catalog = null, catLoading = false;
 let view = "shop", cat = "all", query = "", shown = PAGE, current = [];
 const inShop = new Map();
@@ -287,7 +301,7 @@ function render() {
   const list = $("list"), empty = $("empty");
   const n = Object.keys(fav).length;
   $("cnt").textContent = n; $("cnt").classList.toggle("z", !n);
-  $("bar").hidden = view === "mine";
+  $("bar").hidden = view === "mine" || view === "packs";
   empty.hidden = true;
 
   if (view === "mine") {
@@ -296,6 +310,14 @@ function render() {
     list.innerHTML = (now.length ? sec("Уже в магазине", now.length, "🛒", "можно покупать прямо сейчас") + grid(now, "fav") : "") +
       (wait.length ? sec("Ждём в магазине", wait.length, "⏳", "бот напишет, когда появятся") + grid(wait, "fav") : "");
     if (!l.length) { empty.hidden = false; empty.innerHTML = '<div class="ill">' + IC.heart + '</div><b>В избранном пусто</b><p>Нажми на сердечко на любом предмете — бот напишет тебе, как только он появится в магазине.</p>'; }
+    return;
+  }
+  if (view === "packs") {
+    if (!packs) { list.innerHTML = '<div class="pk-wrap">' + '<div class="sk" style="aspect-ratio:3/1;margin-bottom:12px"></div>'.repeat(3) + '</div>'; return; }
+    const on = packs.filter(p => p.active !== false), off = packs.filter(p => p.active === false);
+    list.innerHTML = (on.length ? sec("Сейчас продаются", on.length, "💳", "за реальные деньги, цены примерные") + '<div class="pk-wrap">' + on.map(packCard).join("") + '</div>' : "") +
+      (off.length ? sec("Больше не продаются", off.length, "🗄", "за что давали и когда были") + '<div class="pk-wrap">' + off.map(packCard).join("") + '</div>' : "");
+    if (!packs.length) { empty.hidden = false; empty.innerHTML = "<b>Наборов пока нет</b><p>Скоро здесь появятся наборы за реальные деньги.</p>"; }
     return;
   }
   if (view === "all") {
@@ -330,6 +352,36 @@ new IntersectionObserver(es => {
     if (g) g.insertAdjacentHTML("beforeend", current.slice(from, shown).map(c => card(fromCat(c), "all")).join(""));
   }
 }, { rootMargin: "800px" }).observe($("more"));
+
+// ---------- наборы за реальные деньги (packs.json, ведётся вручную)
+const catByName = n => catalog && catalog.find(c => c.n.toLowerCase() === String(n).toLowerCase());
+const money = p => [p.usd ? "≈ $" + p.usd : "", p.try ? "≈ " + p.try + " ₺" : ""].filter(Boolean).join(" · ");
+function packCard(p, i) {
+  const ics = (p.items || []).slice(0, 3).map(n => { const c = catByName(n); return c ? '<img loading="lazy" src="' + esc(c.i) + '" alt="">' : ""; }).join("");
+  const pills = [money(p) ? '<span class="pill g">' + esc(money(p)) + '</span>' : "", p.vbucks ? '<span class="pill">+' + esc(p.vbucks) + ' В-баксов</span>' : "",
+    p.till && p.active !== false ? '<span class="pill">до ' + fmt(dayOf(p.till)) + '</span>' : "", p.last && p.active === false ? '<span class="pill">был ' + fmt(dayOf(p.last), true) + '</span>' : ""].join("");
+  return '<button class="pk' + (p.active === false ? " off" : "") + '" data-p="' + packs.indexOf(p) + '"><div class="row1">' + (ics ? '<div class="ics">' + ics + '</div>' : "") +
+    '<div><h3>' + esc(p.name) + '</h3><div class="meta">' + esc((p.items || []).join(", ")) + '</div></div></div><div class="bot">' + pills + '</div></button>';
+}
+function openPack(p) {
+  const rows = [];
+  if (money(p)) rows.push([IC.coin, "Цена", money(p)]);
+  if (p.vbucks) rows.push([IC.gem, "В-баксы в комплекте", String(p.vbucks)]);
+  rows.push([IC.star, "Где доступен", p.regions || "во всех регионах, где Epic продаёт Fortnite"]);
+  if (p.till && p.active !== false) rows.push([IC.clock, "Продаётся до", fmt(dayOf(p.till), true)]);
+  if (p.last) rows.push([IC.back, "Последний раз", fmt(dayOf(p.last), true)]);
+  if (p.how) rows.push([IC.repeat, "Как получали", p.how]);
+  const parts = (p.items || []).map(n => { const c = catByName(n); return '<div class="part">' + (c ? '<img loading="lazy" src="' + esc(c.i) + '" alt="">' : "") + '<div>' + esc(n) + '</div></div>'; }).join("");
+  $("pane").innerHTML = '<div class="grab"></div><div class="pb" style="padding-top:30px"><button class="x" id="x" aria-label="Закрыть" style="top:14px">✕</button><h2>' + esc(p.name) + '</h2>' +
+    '<div class="tags"><span class="tag rar" style="background:#ffd166">' + (p.active === false ? "Больше не продаётся" : "Набор за реальные деньги") + '</span></div>' +
+    (p.note ? '<p class="desc">' + esc(p.note) + '</p>' : "") +
+    (parts ? '<div class="lbl">Что внутри</div><div class="parts">' + parts + '</div>' : "") +
+    '<div class="rows">' + rows.map(([ic, a, b]) => '<div class="row">' + ic + '<span>' + a + '</span><b>' + esc(b) + '</b></div>').join("") + '</div>' +
+    '<p class="desc" style="color:var(--mut);font-size:12.5px">Цены примерные и зависят от региона и платформы. Покупка — в самой игре.</p></div>';
+  $("sheet").classList.add("on"); $("sheet").setAttribute("aria-hidden", "false"); $("pane").scrollTop = 0;
+  $("x").onclick = close;
+  if (inTg && tg.BackButton) { tg.BackButton.show(); tg.BackButton.onClick(close); }
+}
 
 // ---------- карточка предмета
 function openItem(it) {
@@ -459,6 +511,8 @@ $("q").addEventListener("input", e => { clearTimeout(qT); qT = setTimeout(() => 
 }
 $("chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if (!b) return; cat = b.dataset.c; shown = PAGE; haptic("sel"); chips(); render(); });
 $("list").addEventListener("click", e => {
+  const pk = e.target.closest(".pk");
+  if (pk) { openPack(packs[+pk.dataset.p]); return; }
   const b = e.target.closest(".it"); if (!b) return;
   const id = b.dataset.id;
   if (e.target.closest(".hrt")) {
@@ -478,7 +532,7 @@ $("list").addEventListener("click", e => {
 function loadCatalog() {
   if (catalog) return Promise.resolve();
   if (catLoading) return catLoading;
-  catLoading = fetch("data/catalog.json").then(r => r.json()).then(d => { catalog = d; if (view === "all") { chips(); render(); } })
+  catLoading = fetch("data/catalog.json").then(r => r.json()).then(d => { catalog = d; if (view === "all" || view === "packs") { chips(); render(); } })
     .catch(() => { catLoading = false; toast("Не удалось загрузить каталог"); });
   return catLoading;
 }
@@ -486,12 +540,14 @@ function setView(v) {
   if (v === view) return;
   view = v; cat = "all"; query = ""; shown = PAGE; $("q").value = "";
   $("q").placeholder = v === "all" ? "Найти любой предмет" : "Найти в магазине";
-  ["tShop", "tAll", "tMine"].forEach((id, i) => $(id).classList.toggle("on", ["shop", "all", "mine"][i] === v));
-  if (v === "all") loadCatalog();
+  ["tShop", "tAll", "tPacks", "tMine"].forEach((id, i) => $(id).classList.toggle("on", ["shop", "all", "packs", "mine"][i] === v));
+  if (v === "all" || v === "packs") loadCatalog();
+  if (v === "packs" && !packs) fetch("data/packs.json").then(r => r.json()).then(d => { packs = Array.isArray(d) ? d : []; if (view === "packs") render(); }).catch(() => { packs = []; render(); });
   haptic("sel"); chips(); render(); window.scrollTo({ top: 0 });
 }
 $("tShop").onclick = () => setView("shop");
 $("tAll").onclick = () => setView("all");
+$("tPacks").onclick = () => setView("packs");
 $("tMine").onclick = () => setView("mine");
 
 $("list").innerHTML = '<div class="grid">' + '<div class="sk"></div>'.repeat(8) + '</div>';
