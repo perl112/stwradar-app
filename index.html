@@ -17,14 +17,17 @@
 *{box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Manrope,system-ui,sans-serif;overflow-x:clip}
 body{background:radial-gradient(120% 60% at 50% -10%,#1f4a63 0,transparent 60%),linear-gradient(#0d1b2e,#16304b);min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
-header{padding:calc(18px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;gap:12px}
+header{padding:calc(14px + env(safe-area-inset-top)) 16px 6px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px}
+.ttl{flex:1;min-width:0}
 .logo{width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 50% 40%,#bfe9ff,#2f6f98 60%,#163450);display:grid;place-items:center;box-shadow:0 0 18px #7fd0ff55;flex:none}
 .logo svg{width:20px}
-h1{font-size:21px;line-height:1.1;margin:0;font-weight:800}
+h1{font-size:20px;line-height:1.15;margin:0;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sub{color:var(--mut);font-size:13px}
-.tabs{display:flex;gap:6px;margin-left:auto}
-.tab{border:1px solid var(--line);background:var(--bg2);color:var(--mut);border-radius:20px;padding:8px 12px;font:700 13px Manrope,sans-serif;cursor:pointer;min-height:38px}
-.tab.on{background:var(--acc);color:#08263c;border-color:var(--acc)}
+.tabs{display:flex;gap:4px;width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:4px}
+.tab{flex:1;border:0;background:transparent;color:var(--mut);border-radius:10px;padding:8px 6px;font:700 14px Manrope,sans-serif;cursor:pointer;min-height:38px;white-space:nowrap}
+.tab.on{background:var(--acc);color:#08263c}
+.cnt{display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:#ffcd5a;color:#3a2600;font-size:11.5px;line-height:18px}
+.cnt:empty,.cnt.z{display:none}
 .bar{position:sticky;top:0;z-index:5;background:linear-gradient(#0d1b2ef2,#0d1b2ee0);backdrop-filter:blur(8px);padding:8px 16px 10px}
 .search{width:100%;height:44px;border-radius:14px;border:1px solid var(--line);background:var(--bg2);color:var(--ink);font:16px Manrope,sans-serif;padding:0 14px}
 .search:focus{outline:2px solid var(--acc);outline-offset:1px}
@@ -38,6 +41,7 @@ h1{font-size:21px;line-height:1.1;margin:0;font-weight:800}
 .it:active{transform:scale(.97)}
 .art{aspect-ratio:1/1.05;position:relative;background:linear-gradient(var(--c1),var(--c2))}
 .art img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:bottom}
+.art img.bad{display:none}
 .art::after{content:"";position:absolute;inset:auto 0 0;height:45%;background:linear-gradient(transparent,#08101cdd)}
 .nm{position:absolute;left:9px;right:9px;bottom:7px;z-index:1;font-weight:800;font-size:14px;line-height:1.15;text-shadow:0 1px 2px #000;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .bd{position:absolute;top:7px;left:7px;z-index:1;border-radius:10px;padding:2px 8px;font-size:11.5px;font-weight:800}
@@ -84,14 +88,14 @@ h1{font-size:21px;line-height:1.1;margin:0;font-weight:800}
 .more{display:block;margin:0 16px 20px;width:calc(100% - 32px)}
 .inshop{position:absolute;top:7px;left:7px;z-index:1;border-radius:10px;padding:2px 8px;font-size:11.5px;font-weight:800;background:var(--acc);color:#07263b}
 .note{margin:0 16px 18px;color:var(--mut);font-size:12.5px;text-align:center}
-@media(max-width:380px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding-inline:10px}.tab{padding:7px 9px}}
+@media(max-width:380px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding-inline:10px}}
 </style>
 </head>
 <body>
 <header>
   <div class="logo"><svg viewBox="0 0 24 34"><path d="M15 0 2 19h8l-4 15L22 13h-9z" fill="#f2fbff"/></svg></div>
-  <div><h1>Магазин Fortnite</h1><div class="sub" id="date">загружаю…</div></div>
-  <div class="tabs"><button class="tab on" id="tShop">Сегодня</button><button class="tab" id="tAll">Все</button><button class="tab" id="tMine">⭐ <span id="cnt">0</span></button></div>
+  <div class="ttl"><h1>Магазин Fortnite</h1><div class="sub" id="date">загружаю…</div></div>
+  <div class="tabs"><button class="tab on" id="tShop">Сегодня</button><button class="tab" id="tAll">Каталог</button><button class="tab" id="tMine">Избранное <span id="cnt" class="cnt z">0</span></button></div>
 </header>
 <div class="bar">
   <input class="search" id="q" type="search" placeholder="Найти предмет…" autocomplete="off">
@@ -115,7 +119,7 @@ const SHOP_CATS = [["all","Все"],["new","Новинки"],["back","Верну
 const ALL_CATS = [["all","Все"],["outfit","Скины"],["emote","Эмоции"],["pickaxe","Кирки"],["glider","Дельтапланы"],["backpack","Рюкзаки"],["wrap","Обёртки"],["shoe","Кроссовки"],["contrail","Следы"],["music","Музыка"],["other","Остальное"]];
 const PAGE = 60;
 // адрес бота на cloudflare (воркер). пусто — избранное хранится только в телеге, без уведомлений
-const API = "https://stwradar.WORKER-SUBDOMAIN.workers.dev";
+const API = "https://stwradar.perlgraal1337.workers.dev";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const DAY = 864e5;
 const dayOf = s => Date.UTC(+s.slice(0,4), +s.slice(5,7)-1, +s.slice(8,10));
@@ -203,7 +207,7 @@ function chips() {
 
 function render() {
   const grid = $("grid"), empty = $("empty"), more = $("more");
-  $("cnt").textContent = Object.keys(fav).length;
+  { const n = Object.keys(fav).length; $("cnt").textContent = n; $("cnt").classList.toggle("z", !n); }
   document.querySelector(".bar").hidden = view === "mine";
   more.hidden = true;
   if (view === "mine") {
@@ -213,7 +217,7 @@ function render() {
       return card(s ? cardFromShop(s) : { id: f.id, keys: [f.id], name: f.name, thumb: f.img, lastSeen: f.last, c1: "#22456a", c2: "#11243b" }, "fav");
     }).join("");
     empty.hidden = l.length > 0;
-    empty.innerHTML = "<b>В избранном пусто</b>Открой любой предмет во вкладке «Все» и нажми ⭐ — бот напишет, когда он появится в магазине.";
+    empty.innerHTML = "<b>В избранном пусто</b>Открой любой предмет в «Каталоге» и нажми ⭐ — бот напишет, когда он появится в магазине.";
     return;
   }
   if (view === "all" && !catalog) { grid.innerHTML = ""; empty.hidden = false; empty.innerHTML = "<b>Загружаю все предметы…</b>Это пара секунд."; return; }
@@ -302,6 +306,7 @@ function toast(t) { const el = $("toast"); el.textContent = t; el.classList.add(
 
 // ---------- события
 $("shade").onclick = close;
+document.addEventListener("error", e => { if (e.target.tagName === "IMG") e.target.classList.add("bad"); }, true);
 document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
 $("q").addEventListener("input", e => { query = e.target.value; shown = PAGE; render(); });
 $("chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if (!b) return; cat = b.dataset.c; shown = PAGE; chips(); render(); });
