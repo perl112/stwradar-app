@@ -88,6 +88,14 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 .big{position:relative;aspect-ratio:1.15;background:radial-gradient(110% 85% at 50% 15%,var(--c1),var(--c2) 80%);border-bottom:3px solid var(--b)}
 .big::before{content:"";position:absolute;inset:0;background:radial-gradient(55% 40% at 50% 5%,#ffffff33,transparent 70%)}
 .big img{position:absolute;inset:4% 0 0;width:100%;height:96%;object-fit:contain;object-position:center bottom;filter:drop-shadow(0 12px 18px #0008)}
+.big video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .35s;z-index:1;background:#0a1626}
+.big.vid video{opacity:1}
+.vbar{display:none;align-items:center;gap:10px;padding:10px 18px 0}
+.vbar.on{display:flex}
+.vbar button{flex:none;width:40px;height:36px;border-radius:12px;border:1px solid var(--line);background:#ffffff0f;color:var(--ink);font-size:16px;cursor:pointer}
+.vbar input{flex:1;height:28px;accent-color:#8cd7ff}
+.vbar span{width:40px;text-align:right;color:var(--mut);font-size:13px;font-weight:700}
+.src{display:block;margin:6px 18px 0;color:#6f8aa5;font-size:12px;text-decoration:none}
 .x{position:absolute;top:14px;right:14px;z-index:3;width:38px;height:38px;border-radius:50%;border:0;background:#08121fb0;color:#fff;font-size:18px;cursor:pointer;backdrop-filter:blur(6px)}
 .pb{padding:16px 18px 4px}
 .pb h2{margin:0;font-size:25px;line-height:1.12;font-weight:800}
@@ -303,6 +311,8 @@ function openItem(it) {
   $("pane").innerHTML =
     '<div class="grab"></div><div class="big" style="--c1:' + it.c1 + ';--c2:' + it.c2 + ';--b:' + rb + '">' + (it.img ? '<img src="' + esc(it.img) + '" alt="">' : "") +
     '<button class="x" id="x" aria-label="Закрыть">✕</button></div>' +
+    '<div class="vbar" id="vbar"><button id="mute" aria-label="Звук">🔈</button><input id="vr" type="range" min="0" max="100" step="5" aria-label="Громкость"><span id="vv"></span></div>' +
+    '<a class="src" id="src" hidden target="_blank" rel="noopener">видео: fortnite.gg</a>' +
     '<div class="pb" style="--b:' + rb + '"><h2>' + esc(it.name) + '</h2><div class="tags">' + tags + '</div>' +
     (it.desc ? '<p class="desc">' + esc(it.desc) + '</p>' : "") +
     '<div class="rows">' + rows.map(([a, b]) => '<div class="row"><span>' + a + '</span><b>' + esc(b) + '</b></div>').join("") + '</div>' +
@@ -329,8 +339,44 @@ function openItem(it) {
     if (inTg && tg.openTelegramLink) tg.openTelegramLink(url); else window.open(url, "_blank");
   };
   if (inTg && tg.BackButton) { tg.BackButton.show(); tg.BackButton.onClick(close); }
+  loadVideo(key);
+}
+
+// ---------- видео предмета (fortnite.gg, с их водяным знаком)
+let vol = 50, vidToken = 0;
+try { const v = localStorage.getItem("stw_vol"); if (v !== null) vol = +v; } catch (e) {}
+const vidCache = {};
+function loadVideo(id) {
+  const my = ++vidToken;
+  const get = vidCache[id] ? Promise.resolve(vidCache[id]) : fetch(API + "/api/video?id=" + encodeURIComponent(id)).then(r => r.json()).then(d => (vidCache[id] = d)).catch(() => null);
+  get.then(d => {
+    if (my !== vidToken || !d || !d.video || !$("sheet").classList.contains("on")) return;
+    const big = $("pane").querySelector(".big"); if (!big) return;
+    const v = document.createElement("video");
+    v.playsInline = true; v.loop = true; v.preload = "auto"; v.setAttribute("playsinline", ""); v.setAttribute("webkit-playsinline", "");
+    let i = 0;
+    v.src = d.video[0];
+    v.onerror = () => { if (++i < d.video.length) v.src = d.video[i]; else v.remove(); };
+    v.onloadeddata = () => {
+      big.classList.add("vid"); $("vbar").classList.add("on");
+      if (d.source) { $("src").href = d.source; $("src").hidden = false; }
+    };
+    v.onclick = () => v.paused ? v.play() : v.pause();
+    big.insertBefore(v, big.querySelector(".x"));
+    setVolUI();
+    v.volume = vol / 100; v.muted = vol === 0;
+    v.play().catch(() => { v.muted = true; setVolUI(true); v.play().catch(() => {}); });
+    $("vr").oninput = e => { vol = +e.target.value; try { localStorage.setItem("stw_vol", vol); } catch (er) {} v.volume = vol / 100; v.muted = vol === 0; if (v.paused) v.play().catch(() => {}); setVolUI(); };
+    $("mute").onclick = () => { if (v.muted || vol === 0) { if (!vol) vol = 50; v.muted = false; v.volume = vol / 100; v.play().catch(() => {}); } else v.muted = true; setVolUI(v.muted); };
+  });
+}
+function setVolUI(muted) {
+  if (!$("vr")) return;
+  $("vr").value = muted ? 0 : vol; $("vv").textContent = (muted ? 0 : vol) + "%"; $("mute").textContent = muted || !vol ? "🔇" : "🔊";
 }
 function close() {
+  vidToken++;
+  const v = $("pane").querySelector("video"); if (v) { v.pause(); v.removeAttribute("src"); v.load(); v.remove(); }
   $("sheet").classList.remove("on"); $("sheet").setAttribute("aria-hidden", "true");
   if (inTg && tg.BackButton) { tg.BackButton.hide(); tg.BackButton.offClick(close); }
 }
