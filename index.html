@@ -37,9 +37,11 @@ h1{font-size:20px;line-height:1.15;margin:0;font-weight:800;white-space:nowrap;o
 .chip.on{background:#1d3d5c;color:var(--ink);border-color:#3d6f99}
 .chip b{color:var(--acc);font-weight:800;margin-left:4px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:6px 16px 24px}
-.it{position:relative;border-radius:16px;overflow:hidden;background:var(--card);border:1.5px solid var(--b,#3b5f80);box-shadow:0 0 16px var(--g,#0000);cursor:pointer;text-align:left;padding:0;color:inherit;font:inherit;transition:transform .15s}
+.it{position:relative;border-radius:16px;overflow:hidden;background:var(--card);border:2px solid var(--b,#3b5f80);box-shadow:0 0 16px var(--g,#0000);cursor:pointer;text-align:left;padding:0;color:inherit;font:inherit;transition:transform .15s}
 .it:active{transform:scale(.97)}
-.art{aspect-ratio:1/1.05;position:relative;background:linear-gradient(var(--c1),var(--c2))}
+.it::before{content:"";position:absolute;inset:0;border-radius:14px;box-shadow:inset 0 1px 0 #ffffff40,inset 0 0 0 1px #ffffff14;pointer-events:none;z-index:2}
+.art img,.big img{image-rendering:auto;filter:drop-shadow(0 6px 10px #0006)}
+.art{aspect-ratio:1/1.05;position:relative;background:radial-gradient(120% 90% at 50% 20%,var(--c1),var(--c2) 75%)}
 .art img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:bottom}
 .art img.bad{display:none}
 .art::after{content:"";position:absolute;inset:auto 0 0;height:45%;background:linear-gradient(transparent,#08101cdd)}
@@ -47,7 +49,7 @@ h1{font-size:20px;line-height:1.15;margin:0;font-weight:800;white-space:nowrap;o
 .bd{position:absolute;top:7px;left:7px;z-index:1;border-radius:10px;padding:2px 8px;font-size:11.5px;font-weight:800}
 .bd.n{background:var(--new);color:#0b3a20}.bd.r{background:#97dcff;color:#08304b}.bd.y{background:var(--gold);color:#3a2600}
 .bell{position:absolute;top:6px;right:7px;z-index:1;font-size:15px;filter:drop-shadow(0 1px 2px #000)}
-.info{display:flex;align-items:center;gap:6px;padding:8px 9px;border-top:2px solid var(--b,#3b5f80)}
+.info{display:flex;align-items:center;gap:6px;padding:8px 9px;border-top:3px solid var(--b,#3b5f80)}
 .vb{width:17px;height:17px;flex:none}
 .pr{font-weight:800}
 .old{color:var(--mut);text-decoration:line-through;font-size:12px}
@@ -60,7 +62,7 @@ h1{font-size:20px;line-height:1.15;margin:0;font-weight:800;white-space:nowrap;o
 .pane{position:absolute;left:0;right:0;bottom:0;max-height:88vh;overflow:auto;background:#10233a;border-radius:22px 22px 0 0;border-top:1px solid var(--line);padding:0 0 calc(18px + env(safe-area-inset-bottom));animation:up .22s ease-out;max-width:640px;margin:0 auto}
 @keyframes up{from{transform:translateY(40px);opacity:.4}}
 @media (prefers-reduced-motion:reduce){.pane{animation:none}.it{transition:none}}
-.big{aspect-ratio:1.25;position:relative;background:linear-gradient(var(--c1),var(--c2))}
+.big{aspect-ratio:1.25;position:relative;background:radial-gradient(120% 90% at 50% 20%,var(--c1),var(--c2) 75%);border-bottom:3px solid var(--b,#3b5f80)}
 .big img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:bottom}
 .x{position:absolute;top:10px;right:10px;z-index:2;width:40px;height:40px;border-radius:50%;border:0;background:#0a1626cc;color:#fff;font-size:20px;cursor:pointer}
 .pb{padding:14px 18px}
@@ -162,7 +164,7 @@ function askWrite() {
 
 // ---------- общий вид предмета (магазин и каталог приводим к одному формату)
 const fromCat = c => ({ id: c.id, keys: [c.id], name: c.n, kind: c.k, typeName: c.t, rarity: c.r, set: c.s, desc: c.d,
-  img: c.b || c.i, thumb: c.i, video: c.v, lastSeen: c.h, times: c.c, firstSeen: c.f, c1: "#22456a", c2: "#11243b" });
+  img: c.b || c.i, thumb: c.i, video: c.v, lastSeen: c.h, times: c.c, firstSeen: c.f, c1: c.c1 || "#22456a", c2: c.c2 || "#11243b", rb: c.c1 });
 const cardFromShop = it => ({ ...it, thumb: it.img });
 
 function badge(it) {
@@ -179,8 +181,9 @@ function card(it, mode) {
   const bottom = s
     ? vb() + '<span class="pr">' + s.price + '</span>' + (s.regular > s.price ? '<span class="old">' + s.regular + '</span>' : "") + (s.out ? '<span class="till">до ' + fmt(Date.parse(s.out)) + '</span>' : "")
     : '<span class="till" style="margin:0">' + (it.lastSeen ? "был " + fmt(dayOf(it.lastSeen), true) : "не продавался") + '</span>';
-  return '<button class="it" data-id="' + esc(it.id) + '" data-m="' + mode + '" style="--c1:' + it.c1 + ';--c2:' + it.c2 + ';--b:' + it.c1 + 'aa;--g:' + it.c1 + '33">' +
-    '<div class="art">' + (it.thumb ? '<img loading="lazy" src="' + esc(it.thumb) + '" alt="">' : "") + top + star + '<div class="nm">' + esc(it.name) + '</div></div>' +
+  const rb = it.rb || it.c1;
+  return '<button class="it" data-id="' + esc(it.id) + '" data-m="' + mode + '" style="--c1:' + it.c1 + ';--c2:' + it.c2 + ';--b:' + rb + ';--g:' + rb + '55">' +
+    '<div class="art">' + ((it.thumb || it.img) ? '<img loading="lazy" src="' + esc(it.thumb || it.img) + '" alt="">' : "") + top + star + '<div class="nm">' + esc(it.name) + '</div></div>' +
     '<div class="info">' + bottom + '</div></button>';
 }
 
@@ -263,7 +266,7 @@ function openItem(it) {
   if (it.rarity) facts.push(["Редкость", it.rarity]);
   const video = it.video || (s && s.video);
   $("pane").innerHTML =
-    '<div class="big" style="--c1:' + it.c1 + ';--c2:' + it.c2 + '">' + (it.img ? '<img src="' + esc(it.img) + '" alt="">' : "") + '<button class="x" id="x" aria-label="Закрыть">✕</button></div>' +
+    '<div class="big" style="--c1:' + it.c1 + ';--c2:' + it.c2 + ';--b:' + (it.rb || it.c1) + '">' + (it.img ? '<img src="' + esc(it.img) + '" alt="">' : "") + '<button class="x" id="x" aria-label="Закрыть">✕</button></div>' +
     '<div class="pb"><h2>' + esc(it.name) + '</h2><div class="ty">' + esc([it.typeName, it.set].filter(Boolean).join(" · ")) + '</div>' +
     (it.desc ? '<p class="desc">' + esc(it.desc) + '</p>' : "") +
     '<div class="facts">' + facts.map(([a, b]) => '<div class="f"><span>' + a + '</span><b>' + esc(b) + '</b></div>').join("") + '</div>' +
