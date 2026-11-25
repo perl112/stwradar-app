@@ -160,6 +160,20 @@ def gg_numbers() -> dict:
     return mp
 
 
+def pick_img(e, br, nda, imgs, gg) -> str:
+    ids = {(b.get("id") or "").lower() for b in br}
+    nd = e.get("newDisplayAsset") or {}
+    ndid, cid = (nd.get("id") or "").lower(), (nd.get("cosmeticId") or "").lower()
+    # верим картинке магазина, только если она точно про этот предмет: совпал cosmeticId или id предмета есть в её id
+    nd_ok = bool(nda) and ((cid and cid in ids) or (not cid and any(i and i in ndid for i in ids)))
+    if e.get("bundle"):
+        return ((e.get("bundle") or {}).get("image") or (nda[0]["image"] if nd_ok else None)
+                or imgs.get("featured") or imgs.get("icon") or "")
+    first = (br[0].get("id") or "").lower()
+    gg_img = f"https://fortnite.gg/img/items/{gg[first]}/featured.png?1" if gg.get(first) else None
+    return (nda[0]["image"] if nd_ok else None) or imgs.get("featured") or gg_img or imgs.get("icon") or ""
+
+
 def build_shop() -> dict:
     d = get(f"{API}/shop?language=ru&responseFlags=4")["data"]
     today = day(d["date"])
@@ -197,9 +211,10 @@ def build_shop() -> dict:
             "price": e.get("finalPrice"), "regular": e.get("regularPrice"),
             "out": e.get("outDate"),
             # картинка как в игровом магазине (newDisplayAsset); у «проблемных» лотов её нет — тогда берём с fortnite.gg
-            "img": (nda[0]["image"] if nda else None)
-                   or (f"https://fortnite.gg/img/items/{gg[first['id'].lower()]}/featured.png?1" if gg.get(first.get("id", "").lower()) else None)
-                   or imgs.get("featured") or imgs.get("icon") or "",
+            # картинка: у набора — его собственная обложка (как в игре, все предметы вместе);
+            # у предмета — newDisplayAsset, но только если он реально про этот предмет (иначе бывают чужие, как черепаха у микрофона)
+            "img": pick_img(e, br, nda, imgs, gg),
+            "alt": imgs.get("featured") or imgs.get("icon") or "",
             "c1": col((e.get("colors") or {}).get("color1")),
             "c2": col((e.get("colors") or {}).get("color3") or (e.get("colors") or {}).get("color2")),
             "isNew": is_new, "days": days, "returned": (not is_new) and days is not None and days >= 2,
@@ -227,6 +242,22 @@ def build_shop() -> dict:
     if vb:
         jobs.append((vb, vbp, 64))
     mirror(jobs)
+    # если основную картинку скачать не дали (например, fortnite.gg), сохраняем запасную —
+    # в миниаппе сначала грузится основная по ссылке, а не загрузилась — подставляется запасная
+    jobs2 = []
+    for it in items:
+        p = IMG / "shop" / f"{safe(it['id'])}.webp"
+        alt = it.get("alt") or ""
+        if p.exists() or not alt or alt == it["img"]:
+            it["alt"] = ""
+            continue
+        pa = IMG / "shop" / f"{safe(it['id'])}_a.webp"
+        jobs2.append((alt, pa, SHOP_PX)); it["_pa"] = pa
+    mirror(jobs2)
+    for it in items:
+        pa = it.pop("_pa", None)
+        if pa is not None:
+            it["alt"] = local_or_remote(it["alt"], pa)
     for obj, key, remote, p in links:
         obj[key] = local_or_remote(remote, p)
     ok = sum(1 for *_, p in links if p.exists())
