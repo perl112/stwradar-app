@@ -347,7 +347,7 @@ const splash = (() => {
 setTimeout(() => splash.done(), 8000);   // на случай плохой сети — всё равно пускаем в приложение
 const inTg = !!(tg && tg.initData);
 // ---------- самообновление: телега любит держать старую версию страницы в кэше
-const BUILD = "2026-11-26f";
+const BUILD = "2026-11-26g";
 fetch("index.html?nocache=" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(t => {
   const m = t.match(/const BUILD = "([^"]+)"/);
   if (m && m[1] !== BUILD) {
@@ -423,7 +423,7 @@ async function pullFav() {
   if (!inTg || !API || !tg.initData) return;
   try {
     const r = await (await fetch(API + "/api/fav", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ initData: tg.initData, get: 1 }) })).json();
-    if (!r.ok) return;
+    if (!r.ok || !Array.isArray(r.favs)) { if (r.error) console.warn("избранное:", r.error); return; }   // старый воркер — ничего не трогаем
     const srv = {}; (r.favs || []).forEach(f => { srv[f.id] = { ...f, key: f.id }; });
     if (r.t && r.t >= favT) {
       for (const k in srv) if (!srv[k].img && fav[k]) srv[k] = { ...fav[k], ...srv[k], img: fav[k].img, c1: fav[k].c1, c2: fav[k].c2 };
@@ -454,7 +454,9 @@ function pushFav() {
   clearTimeout(syncT);
   syncT = setTimeout(() => {
     fetch(API + "/api/fav", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ initData: tg.initData, t: favT, favs: favOut() }) }).catch(() => {});
+      body: JSON.stringify({ initData: tg.initData, t: favT, favs: favOut() }) })
+      .then(r => r.json()).then(r => { if (!r.ok && !r.stale) toast("Избранное не сохранилось на сервере: " + (r.error || "ошибка")); })
+      .catch(() => {});
   }, 500);
 }
 const syncFav = pushFav;
