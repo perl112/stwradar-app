@@ -219,6 +219,9 @@ def fresh_shop() -> dict:
 
 def build_shop() -> dict:
     d = fresh_shop()
+    # старые картинки магазина не копим — только сегодняшние (удаляем, только когда новый магазин уже получен)
+    for f in (IMG / "shop").glob("*.webp"):
+        f.unlink()
     today = day(d["date"])
     now = datetime.now(timezone.utc)
     items, seen = [], set()
@@ -539,6 +542,15 @@ PACK_TAIL = re.compile(r"\s*\b(starter quest pack|starter pack|quest pack|challe
 
 
 def build_packs(cat: list) -> None:
+    if API_DOWN["v"]:
+        try:
+            live = live_json("packs.json")
+            keep_live_images(live, ("img",))
+            (OUT / "packs.json").write_text(json.dumps(live, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            print(f"наборы: api лежит — оставил {len(live)} с сайта")
+            return
+        except Exception as e:
+            print(f"наборы с сайта не взял ({type(e).__name__}) — собираю без состава")
     try:
         packs = json.loads(Path("packs.json").read_text(encoding="utf-8"))
     except Exception as e:
@@ -565,9 +577,11 @@ def build_packs(cat: list) -> None:
         full = []
         for name in p.get("items") or []:
             hit = None
+            if API_DOWN["v"]:
+                break   # api лежит — состав наборов не ищем, чтобы не ждать
             try:
                 q = urllib.parse.urlencode({"name": name, "language": "ru", "searchLanguage": "en", "matchMethod": "full"})
-                hit = get(f"{API}/cosmetics/br/search?{q}").get("data")
+                hit = get(f"{API}/cosmetics/br/search?{q}", tries=2).get("data")
             except Exception:
                 pass
             if hit and hit["id"].lower() in by_id:
@@ -581,15 +595,62 @@ def build_packs(cat: list) -> None:
     print(f"наборы: {len(packs)}, с составом: {found}")
 
 
+# ---------- запасной план: если fortnite-api лежит, оставляем то, что сейчас на сайте (а не валим сборку)
+LIVE = "https://perl112.github.io/stwradar-app/"
+API_DOWN = {"v": False}
+
+
+def live_bytes(url: str) -> bytes:
+    for n in range(3):
+        try:
+            req = urllib.request.Request(url + ("&" if "?" in url else "?") + f"t={int(time.time())}", headers={"User-Agent": "stwradar-app"})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return r.read()
+        except Exception:
+            if n == 2:
+                raise
+            time.sleep(5)
+
+
+def live_json(name: str):
+    return json.loads(live_bytes(LIVE + "data/" + name))
+
+
+def keep_live_images(objs: list, keys=("img", "alt")) -> None:
+    """картинки, на которые ссылается старый json, тоже забираем с сайта, иначе после деплоя их не станет"""
+    def one(rel):
+        dst = Path("site") / rel
+        if dst.exists():
+            return
+        try:
+            data = live_bytes(LIVE + rel)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_bytes(data)
+        except Exception as e:
+            FAILS.append(f"{type(e).__name__} {rel}")
+    rels = {o.get(k) for o in objs for k in keys if isinstance(o.get(k), str) and o.get(k) and not o.get(k).startswith(("http", "data:"))}
+    with ThreadPoolExecutor(8) as ex:
+        list(ex.map(one, rels))
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    # старые картинки магазина не копим — только сегодняшние
-    for f in (IMG / "shop").glob("*.webp"):
-        f.unlink()
-    shop = build_shop()
+    try:
+        shop = build_shop()
+    except Exception as e:
+        print(f"⚠ fortnite-api не отдал магазин ({e}) — оставляю тот, что сейчас на сайте; следующий запуск попробует снова")
+        API_DOWN["v"] = True
+        shop = live_json("shop.json")
+        keep_live_images(shop["items"])
+        keep_live_images([p for it in shop["items"] for p in it.get("parts") or []], ("img",))
     (OUT / "shop.json").write_text(json.dumps(shop, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"магазин: {len(shop['items'])} предметов за {shop['date']}")
-    cat = build_catalog()
+    try:
+        cat = build_catalog()
+    except Exception as e:
+        print(f"⚠ fortnite-api не отдал каталог ({e}) — оставляю тот, что сейчас на сайте")
+        API_DOWN["v"] = True
+        cat = live_json("catalog.json")
     (OUT / "catalog.json").write_text(json.dumps(cat, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"каталог: {len(cat)} предметов")
     build_packs(cat)
