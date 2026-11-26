@@ -346,9 +346,19 @@ const splash = (() => {
   };
 })();
 setTimeout(() => splash.done(), 8000);   // на случай плохой сети — всё равно пускаем в приложение
-const inTg = !!(tg && tg.initData);
+// подпись телеги: обычно в tg.initData, но телега на пк иногда отдаёт её только в адресе,
+// а после самообновления страницы — теряет; поэтому берём из всех мест и запоминаем
+let INIT = "";
+try {
+  INIT = (tg && tg.initData) || "";
+  if (!INIT) INIT = new URLSearchParams(location.hash.slice(1)).get("tgWebAppData") || "";
+  if (!INIT) INIT = sessionStorage.getItem("stw_init") || "";
+  if (!INIT && tg && tg.platform && tg.platform !== "unknown") INIT = localStorage.getItem("stw_init") || "";
+  if (INIT) { sessionStorage.setItem("stw_init", INIT); localStorage.setItem("stw_init", INIT); }
+} catch (e) {}
+const inTg = !!(tg && (INIT || (tg.platform && tg.platform !== "unknown")));
 // ---------- самообновление: телега любит держать старую версию страницы в кэше
-const BUILD = "2026-11-26j";
+const BUILD = "2026-11-26k";
 fetch("index.html?nocache=" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(t => {
   const m = t.match(/const BUILD = "([^"]+)"/);
   if (m && m[1] !== BUILD) {
@@ -423,9 +433,9 @@ function fromCloud() {
 let syncSt = "", syncBad = false;
 function setSync(t, bad) { syncSt = t; syncBad = !!bad; const el = document.getElementById("syncst"); if (el) { el.textContent = t; el.classList.toggle("bad", syncBad); } }
 async function pullFav() {
-  if (!inTg || !API || !tg.initData) { setSync("открой из бота, чтобы избранное сохранялось на сервере", true); return; }
+  if (!inTg || !API || !INIT) { setSync("⚠ телега не передала подпись (" + (tg ? (tg.platform || "?") + " " + (tg.version || "?") + ", адрес: " + (location.hash ? "есть" : "пусто") : "не телега") + ") — открой через кнопку «Магазин» в боте", true); return; }
   try {
-    const r = await (await fetch(API + "/api/fav", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ initData: tg.initData, get: 1 }) })).json();
+    const r = await (await fetch(API + "/api/fav", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ initData: INIT, get: 1 }) })).json();
     if (!r.ok || !Array.isArray(r.favs)) { setSync("⚠ сервер не принял: " + (r.error || "старый воркер"), true); return; }   // старый воркер — ничего не трогаем
     const srv = {}; (r.favs || []).forEach(f => { srv[f.id] = { ...f, key: f.id }; });
     if (!r.favs.length) {
@@ -464,7 +474,7 @@ function pushFav() {
   clearTimeout(syncT);
   syncT = setTimeout(() => {
     fetch(API + "/api/fav", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ initData: tg.initData, t: favT, favs: favOut() }) })
+      body: JSON.stringify({ initData: INIT, t: favT, favs: favOut() }) })
       .then(r => r.json()).then(r => {
         if (r.ok) setSync("☁ сохранено на сервере · " + r.count);
         else if (!r.stale) { setSync("⚠ не сохранилось: " + (r.error || "ошибка"), true); toast("Избранное не сохранилось на сервере: " + (r.error || "ошибка")); }
