@@ -146,6 +146,7 @@ h1{margin:0;font-size:22px;line-height:1.1;font-weight:800}
 .lbl{color:var(--mut);font-size:13px;font-weight:700;margin:14px 0 8px}
 
 .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:#eaf7ff;color:#06263c;font-weight:700;padding:12px 18px;border-radius:14px;z-index:30;opacity:0;pointer-events:none;transition:all .25s;max-width:90vw;text-align:center;box-shadow:0 10px 30px #0008}
+.syncst{text-align:center;font-size:12px;color:#7fa6c4;margin:14px 0 4px;opacity:.85}.syncst.bad{color:#ff8a8a;opacity:1}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media(min-width:760px){
@@ -347,7 +348,7 @@ const splash = (() => {
 setTimeout(() => splash.done(), 8000);   // на случай плохой сети — всё равно пускаем в приложение
 const inTg = !!(tg && tg.initData);
 // ---------- самообновление: телега любит держать старую версию страницы в кэше
-const BUILD = "2026-11-26i";
+const BUILD = "2026-11-26j";
 fetch("index.html?nocache=" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(t => {
   const m = t.match(/const BUILD = "([^"]+)"/);
   if (m && m[1] !== BUILD) {
@@ -411,7 +412,7 @@ const ownShop = new Map();  // предмет -> позиция, где прод
 let fav = {}, favT = 0;
 try { fav = JSON.parse(localStorage.getItem("stw_fav") || "{}"); favT = +localStorage.getItem("stw_favT") || 0; } catch (e) {}
 const keepLocal = () => { try { localStorage.setItem("stw_fav", JSON.stringify(fav)); localStorage.setItem("stw_favT", String(favT)); } catch (e) {} };
-const favOut = () => Object.values(fav).map(f => ({ id: f.key || f.id, name: f.name, img: f.img || "", c1: f.c1 || "", c2: f.c2 || "", last: f.last || "" }));
+const favOut = () => Object.entries(fav).map(([k, f]) => ({ id: String(f.key || f.id || k), name: f.name, img: f.img || "", c1: f.c1 || "", c2: f.c2 || "", last: f.last || "" }));
 // старое облако телеги: если там что-то было — забираем к себе (один раз)
 function fromCloud() {
   return new Promise(res => {
@@ -419,11 +420,13 @@ function fromCloud() {
     try { tg.CloudStorage.getItem("fav", (err, v) => { try { res(!err && v ? JSON.parse(v) : {}); } catch (e) { res({}); } }); } catch (e) { res({}); }
   });
 }
+let syncSt = "", syncBad = false;
+function setSync(t, bad) { syncSt = t; syncBad = !!bad; const el = document.getElementById("syncst"); if (el) { el.textContent = t; el.classList.toggle("bad", syncBad); } }
 async function pullFav() {
-  if (!inTg || !API || !tg.initData) return;
+  if (!inTg || !API || !tg.initData) { setSync("открой из бота, чтобы избранное сохранялось на сервере", true); return; }
   try {
     const r = await (await fetch(API + "/api/fav", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ initData: tg.initData, get: 1 }) })).json();
-    if (!r.ok || !Array.isArray(r.favs)) { if (r.error) console.warn("избранное:", r.error); return; }   // старый воркер — ничего не трогаем
+    if (!r.ok || !Array.isArray(r.favs)) { setSync("⚠ сервер не принял: " + (r.error || "старый воркер"), true); return; }   // старый воркер — ничего не трогаем
     const srv = {}; (r.favs || []).forEach(f => { srv[f.id] = { ...f, key: f.id }; });
     if (!r.favs.length) {
       // на сервере пусто — НИКОГДА не затираем этим локальный список (пустое устройство не должно стирать полное)
@@ -438,8 +441,9 @@ async function pullFav() {
       const cl = await fromCloud();                // переход со старой версии: объединяем всё, что есть
       fav = { ...srv, ...cl, ...fav }; favT = Date.now(); pushFav();
     } else if (favT > (r.t || 0)) { pushFav(); }   // здесь меняли без сети — отправляем
+    if (!syncBad && Object.keys(fav).length) setSync("☁ синхронизировано · на сервере " + r.favs.length);
     keepLocal(); fillFav(); render();
-  } catch (e) {}
+  } catch (e) { setSync("⚠ нет связи с сервером бота: " + (e.message || e), true); }
 }
 // у предметов, пришедших без картинки, подставляем её из каталога
 // картинки из старой папки (img/c2) больше нет — такие тоже обновляем по каталогу
@@ -461,8 +465,11 @@ function pushFav() {
   syncT = setTimeout(() => {
     fetch(API + "/api/fav", { method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ initData: tg.initData, t: favT, favs: favOut() }) })
-      .then(r => r.json()).then(r => { if (!r.ok && !r.stale) toast("Избранное не сохранилось на сервере: " + (r.error || "ошибка")); })
-      .catch(() => {});
+      .then(r => r.json()).then(r => {
+        if (r.ok) setSync("☁ сохранено на сервере · " + r.count);
+        else if (!r.stale) { setSync("⚠ не сохранилось: " + (r.error || "ошибка"), true); toast("Избранное не сохранилось на сервере: " + (r.error || "ошибка")); }
+      })
+      .catch(e => setSync("⚠ нет связи с сервером бота: " + (e.message || e), true));
   }, 500);
 }
 const syncFav = pushFav;
@@ -552,6 +559,7 @@ function render() {
       (wait.length ? sec("Ждём в магазине", wait.length, "wait", "бот напишет, когда появятся") + grid(ws, "fav") +
         (rest > 0 ? '<button class="moreb" id="favMore">Показать ещё ' + Math.min(rest, FAV_PAGE) + ' <small>из ' + rest + '</small></button>' : "") : "") +
       (q && !lf.length && l.length ? '<div class="empty" style="display:block"><b>Ничего не нашлось</b><p>В избранном нет «' + esc(query) + '»</p></div>' : "");
+    if (l.length) list.insertAdjacentHTML("beforeend", '<div class="syncst' + (syncBad ? ' bad' : '') + '" id="syncst">' + esc(syncSt || "…") + '</div>');
     if ($("favMore")) $("favMore").onclick = () => { favShown += FAV_PAGE; haptic("sel"); render(); };
     if (!l.length) { empty.hidden = false; empty.innerHTML = '<div class="ill">' + IC.heart + '</div><b>В избранном пусто</b><p>Нажми на сердечко на любом предмете — бот напишет тебе, как только он появится в магазине.</p>'; }
     return;
