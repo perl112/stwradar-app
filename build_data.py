@@ -10,8 +10,8 @@ import urllib.request
 import sys
 
 START = time.time()
-IMG_BUDGET = 14 * 60     # на скачивание картинок за запуск — не больше 14 минут, остальное докачается в следующий раз
-XB_BUDGET = 4 * 60       # на xbox-магазин — не больше 4 минут
+IMG_BUDGET = 7 * 60      # на картинки за запуск — не больше 7 минут (магазин качается первым), остальное докачается в следующие запуски
+XB_BUDGET = 3 * 60       # на xbox-магазин — не больше 3 минут
 sys.stdout.reconfigure(line_buffering=True)   # чтобы лог в Actions шёл сразу
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timezone
@@ -184,8 +184,25 @@ def pick_img(e, br, nda, imgs, gg, is_b=False) -> str:
     return (nda[0]["image"] if nd_ok else None) or imgs.get("featured") or gg_img or imgs.get("icon") or ""
 
 
+def fresh_shop() -> dict:
+    """магазин меняется в 00:00 UTC, а fortnite-api иногда отдаёт новый на несколько минут позже —
+    в первые полчаса после смены ждём свежий (до 20 минут), чтобы не собрать вчерашний"""
+    global START
+    for i in range(21):
+        d = get(f"{API}/shop?language=ru&responseFlags=4")["data"]
+        now = datetime.now(timezone.utc)
+        if day(d["date"]) >= now.date() or now.hour != 0 or now.minute > 40:
+            if i:
+                print(f"свежий магазин появился через {i} мин")
+                START = time.time()   # время на картинки считаем с этого момента
+            return d
+        print(f"магазин ещё вчерашний ({day(d['date'])}), жду минуту…")
+        time.sleep(60)
+    return d
+
+
 def build_shop() -> dict:
-    d = get(f"{API}/shop?language=ru&responseFlags=4")["data"]
+    d = fresh_shop()
     today = day(d["date"])
     now = datetime.now(timezone.utc)
     items, seen = [], set()
