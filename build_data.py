@@ -26,10 +26,26 @@ KNOWN = {"outfit", "emote", "pickaxe", "glider", "backpack", "wrap", "shoe", "co
          "spray", "emoji", "pet", "petcarrier", "toy"}
 
 
-def get(url: str) -> dict:
+def get(url: str, tries: int = 6) -> dict:
+    """fortnite-api иногда отвечает 503/502/429 или рвёт соединение на пару минут —
+    повторяем с паузами (10, 20, 30, 45, 60 с), а не валим всю сборку"""
     req = urllib.request.Request(url, headers={"User-Agent": "stwradar-app"})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return json.load(r)
+    waits = [10, 20, 30, 45, 60]
+    for n in range(tries):
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            if e.code < 500 and e.code != 429 or n == tries - 1:
+                raise
+            why = f"HTTP {e.code}"
+        except (urllib.error.URLError, TimeoutError, ConnectionError, json.JSONDecodeError) as e:
+            if n == tries - 1:
+                raise
+            why = type(e).__name__
+        w = waits[min(n, len(waits) - 1)]
+        print(f"  {url.split('?')[0]}: {why}, повтор через {w} с ({n + 1}/{tries - 1})")
+        time.sleep(w)
 
 
 def safe(s: str) -> str:
