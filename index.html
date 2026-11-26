@@ -240,6 +240,12 @@ body.full header{padding-top:calc(16px + var(--tg-safe-area-inset-top,0px) + var
  background:color-mix(in srgb,var(--pc,#ffd166) 14%,#0d1d30);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--pc,#ffd166) 45%,transparent)}
 .perk i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:color-mix(in srgb,var(--pc,#ffd166) 25%,transparent)}
 .perk svg{width:16px;height:16px;fill:none;stroke:color-mix(in srgb,var(--pc,#ffd166) 70%,#fff);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.vbar.iosv input,.vbar.iosv span{display:none}
+.vbar.iosv::after{content:"громкость — кнопками телефона";color:var(--mut);font-size:12.5px;font-weight:600}
+/* фон страницы — отдельным неподвижным слоем (на iPhone фон body рисовался кусками) */
+body{background:transparent}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(90% 40% at 15% -5%,#2b6a8a55,transparent 70%),radial-gradient(70% 35% at 95% 0,#4b4fa044,transparent 70%)}
+@media(max-width:899px){.bar{box-shadow:none;clip-path:none}}
 </style>
 </head>
 <body>
@@ -275,7 +281,7 @@ body.full header{padding-top:calc(16px + var(--tg-safe-area-inset-top,0px) + var
 const tg = window.Telegram && Telegram.WebApp;
 const inTg = !!(tg && tg.initData);
 // ---------- самообновление: телега любит держать старую версию страницы в кэше
-const BUILD = "2026-11-25x";
+const BUILD = "2026-11-26b";
 fetch("index.html?nocache=" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(t => {
   const m = t.match(/const BUILD = "([^"]+)"/);
   if (m && m[1] !== BUILD) {
@@ -334,25 +340,58 @@ let view = "shop", cat = "all", query = "", shown = PAGE, current = [];
 const inShop = new Map();   // предмет -> где его сейчас можно купить (сам или в наборе)
 const ownShop = new Map();  // предмет -> позиция, где продаётся именно он сам
 
-// ---------- избранное: облако телеги + localStorage + бот на cloudflare
-let fav = {};
-try { fav = JSON.parse(localStorage.getItem("stw_fav") || "{}"); } catch (e) {}
-if (inTg && tg.CloudStorage) try { tg.CloudStorage.getItem("fav", (err, v) => { if (!err && v) { try { fav = JSON.parse(v); render(); syncFav(); } catch (e) {} } }); } catch (e) {}
-function saveFav() {
-  const v = JSON.stringify(fav);
-  try { localStorage.setItem("stw_fav", v); } catch (e) {}
-  if (inTg && tg.CloudStorage) try { tg.CloudStorage.setItem("fav", v); } catch (e) {}
-  syncFav();
+// ---------- избранное: главная копия — на сервере бота (одна на все устройства), в браузере — кэш
+// (облако телеги не подходит: туда влезает максимум 4 КБ, это ~15 предметов)
+let fav = {}, favT = 0;
+try { fav = JSON.parse(localStorage.getItem("stw_fav") || "{}"); favT = +localStorage.getItem("stw_favT") || 0; } catch (e) {}
+const keepLocal = () => { try { localStorage.setItem("stw_fav", JSON.stringify(fav)); localStorage.setItem("stw_favT", String(favT)); } catch (e) {} };
+const favOut = () => Object.values(fav).map(f => ({ id: f.key || f.id, name: f.name, img: f.img || "", c1: f.c1 || "", c2: f.c2 || "", last: f.last || "" }));
+// старое облако телеги: если там что-то было — забираем к себе (один раз)
+function fromCloud() {
+  return new Promise(res => {
+    if (!inTg || !tg.CloudStorage) return res({});
+    try { tg.CloudStorage.getItem("fav", (err, v) => { try { res(!err && v ? JSON.parse(v) : {}); } catch (e) { res({}); } }); } catch (e) { res({}); }
+  });
 }
+async function pullFav() {
+  if (!inTg || !API || !tg.initData) return;
+  try {
+    const r = await (await fetch(API + "/api/fav", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ initData: tg.initData, get: 1 }) })).json();
+    if (!r.ok) return;
+    const srv = {}; (r.favs || []).forEach(f => { srv[f.id] = { ...f, key: f.id }; });
+    if (r.t && r.t >= favT) {
+      for (const k in srv) if (!srv[k].img && fav[k]) srv[k] = { ...fav[k], ...srv[k], img: fav[k].img, c1: fav[k].c1, c2: fav[k].c2 };
+      fav = srv; favT = r.t;                       // на сервере свежее — берём его (картинки из своего кэша не теряем)
+    } else if (!r.t && !favT) {
+      const cl = await fromCloud();                // переход со старой версии: объединяем всё, что есть
+      fav = { ...srv, ...cl, ...fav }; favT = Date.now(); pushFav();
+    } else if (favT > (r.t || 0)) { pushFav(); }   // здесь меняли без сети — отправляем
+    keepLocal(); fillFav(); render();
+  } catch (e) {}
+}
+// у предметов, пришедших без картинки, подставляем её из каталога
+function fillFav() {
+  if (!Object.values(fav).some(f => !f.img)) return;
+  loadCatalog().then(() => {
+    if (!catalog) return;
+    let ch = false;
+    for (const f of Object.values(fav)) if (!f.img) { const c = catalog.find(x => x.id.toLowerCase() === (f.id || "").toLowerCase()); if (c) { f.img = c.i; f.c1 = c.c1; f.c2 = c.c2; f.last = f.last || c.h; ch = true; } }
+    if (ch) { keepLocal(); render(); }
+  });
+}
+function saveFav() { favT = Date.now(); keepLocal(); pushFav(); }
 let syncT;
-function syncFav() {
+function pushFav() {
   if (!inTg || !API) return;
   clearTimeout(syncT);
   syncT = setTimeout(() => {
     fetch(API + "/api/fav", { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ initData: tg.initData, favs: Object.values(fav).map(f => ({ id: f.key, name: f.name })) }) }).catch(() => {});
-  }, 600);
+      body: JSON.stringify({ initData: tg.initData, t: favT, favs: favOut() }) }).catch(() => {});
+  }, 500);
 }
+const syncFav = pushFav;
+pullFav();
+document.addEventListener("visibilitychange", () => { if (!document.hidden) pullFav(); });
 let askedWrite = false;
 function askWrite() {
   if (askedWrite || !inTg || !tg.requestWriteAccess) return;
@@ -608,7 +647,7 @@ function startTimer() {
     // в игре магазин уже сменился, а у нас ещё вчерашний (сборка идёт минут 10–20 после обновления)
     const stale = today < Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
     box.classList.toggle("upd", stale);
-    if (stale) box.querySelector("span").textContent = "магазин обновился, подгружаем…";
+    if (stale) box.querySelector("span").textContent = "обновляем магазин…";
   };
   tick(); setInterval(tick, 1000);
   // пока данные вчерашние — раз в 2 минуты проверяем, не собрался ли новый магазин, и сами обновляемся
@@ -715,9 +754,12 @@ function loadVideo2(id, my) {
     v.volume = vol / 100; v.muted = vol === 0;
     v.play().catch(() => { v.muted = true; setVolUI(true); v.play().catch(() => {}); });
     $("vr").oninput = e => { vol = +e.target.value; try { localStorage.setItem("stw_vol", vol); } catch (er) {} v.volume = vol / 100; v.muted = vol === 0; if (v.paused) v.play().catch(() => {}); setVolUI(); };
+    if (NO_VOL) { $("vbar").classList.add("iosv"); setVolUI(v.muted); }
     $("mute").onclick = () => { if (v.muted || vol === 0) { if (!vol) vol = 50; v.muted = false; v.volume = vol / 100; v.play().catch(() => {}); } else v.muted = true; setVolUI(v.muted); };
   });
 }
+// на iPhone/iPad громкость видео меняется только кнопками телефона — ползунок там не работает
+const NO_VOL = (() => { try { const t = document.createElement("video"); t.volume = 0.5; return t.volume === 1 || /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); } catch (e) { return false; } })();
 function setVolUI(muted) {
   if (!$("vr")) return;
   $("vr").value = muted ? 0 : vol; $("vv").textContent = (muted ? 0 : vol) + "%"; $("mute").innerHTML = muted || !vol ? SND_OFF : SND_ON;
