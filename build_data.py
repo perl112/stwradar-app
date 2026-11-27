@@ -312,6 +312,26 @@ def build_shop() -> dict:
         obj[key] = local_or_remote(remote, p)
     ok = sum(1 for *_, p in links if p.exists())
     print(f"картинки магазина: {ok} из {len(links)} скачано")
+    # лёгкие копии для сетки (крупные 800 px остаются для карточки предмета) — чтобы скролл на телефоне не тормозил
+    from PIL import Image
+    th_n = 0
+    for it in items:
+        for key, tkey in (("img", "th"), ("alt", "tha")):
+            v = it.get(key) or ""
+            if not v or v.startswith(("http", "data:")):
+                continue
+            src = Path("site") / v
+            dst = src.with_name(src.stem + "_s.webp")
+            try:
+                if not dst.exists():
+                    im = Image.open(src)
+                    im.thumbnail((400, 400), Image.LANCZOS)
+                    im.save(dst, "WEBP", quality=82, method=4)
+                it[tkey] = str(dst.relative_to("site")).replace("\\", "/")
+                th_n += 1
+            except Exception as e:
+                FAILS.append(f"thumb {type(e).__name__} {v}")
+    print(f"лёгкие картинки для сетки: {th_n}")
     return {"date": today.isoformat(), "vbuck": local_or_remote(vb, vbp) if vb else "", "items": items}
 
 

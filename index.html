@@ -7,6 +7,73 @@
 <meta name="theme-color" content="#0c1a2a">
 <title>Storm Radar · Магазин</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+// telegram.org в некоторых сетях не открывается (замедление в рф) — тогда официальный скрипт телеги не грузится,
+// и миниапп «не видит» телегу: нет подписи, кнопки назад и т.д. делаем свою мини-версию: данные берём из адреса,
+// команды шлём в само приложение телеги напрямую (TelegramWebviewProxy / postMessage) — без telegram.org
+(function () {
+  if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData !== undefined) return;
+  var hp = {};
+  try {
+    var h = location.hash.slice(1); if (!h) h = sessionStorage.getItem("stw_hash") || ""; else sessionStorage.setItem("stw_hash", h);
+    new URLSearchParams(h).forEach(function (v, k) { hp[k] = v; });
+  } catch (e) {}
+  if (!hp.tgWebAppData && !window.TelegramWebviewProxy) return;   // обычный браузер — не притворяемся телегой
+  function post(type, data) {
+    try {
+      if (window.TelegramWebviewProxy) window.TelegramWebviewProxy.postEvent(type, JSON.stringify(data || {}));
+      else if (window.external && "notify" in window.external) window.external.notify(JSON.stringify({ eventType: type, eventData: data || {} }));
+      else if (window.parent !== window) window.parent.postMessage(JSON.stringify({ eventType: type, eventData: data || {} }), "*");
+    } catch (e) {}
+  }
+  var hs = {};
+  function on(ev, fn) { (hs[ev] = hs[ev] || []).push(fn); }
+  function off(ev, fn) { hs[ev] = (hs[ev] || []).filter(function (f) { return f !== fn; }); }
+  function fire(ev, d) { (hs[ev] || []).slice().forEach(function (f) { try { f(d); } catch (e) {} }); }
+  var ver = hp.tgWebAppVersion || "6.0";
+  function atLeast(v) { var a = ver.split("."), b = String(v).split("."); for (var i = 0; i < 2; i++) { var x = +a[i] || 0, y = +b[i] || 0; if (x !== y) return x > y; } return true; }
+  var back = { isVisible: false,
+    show: function () { this.isVisible = true; post("web_app_setup_back_button", { is_visible: true }); return this; },
+    hide: function () { this.isVisible = false; post("web_app_setup_back_button", { is_visible: false }); return this; },
+    onClick: function (f) { on("backButtonClicked", f); return this; }, offClick: function (f) { off("backButtonClicked", f); return this; } };
+  var wa = {
+    initData: hp.tgWebAppData || "", initDataUnsafe: {}, version: ver, platform: hp.tgWebAppPlatform || "unknown",
+    themeParams: {}, isExpanded: true, isFullscreen: false, _shim: true,
+    safeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 }, contentSafeAreaInset: { top: 0, bottom: 0, left: 0, right: 0 },
+    isVersionAtLeast: atLeast,
+    ready: function () { post("web_app_ready"); }, expand: function () { post("web_app_expand"); }, close: function () { post("web_app_close"); },
+    setHeaderColor: function (c) { post("web_app_set_header_color", { color: c }); },
+    setBackgroundColor: function (c) { post("web_app_set_background_color", { color: c }); },
+    setBottomBarColor: function (c) { post("web_app_set_bottom_bar_color", { color: c }); },
+    disableVerticalSwipes: function () { post("web_app_setup_swipe_behavior", { allow_vertical_swipe: false }); },
+    requestFullscreen: atLeast("8.0") ? function () { post("web_app_request_fullscreen"); } : undefined,
+    exitFullscreen: function () { post("web_app_exit_fullscreen"); },
+    openTelegramLink: function (u) { try { var x = new URL(u); post("web_app_open_tg_link", { path_full: x.pathname + x.search }); } catch (e) { window.open(u, "_blank"); } },
+    openLink: function (u) { post("web_app_open_link", { url: u }); },
+    onEvent: on, offEvent: off, BackButton: back,
+    HapticFeedback: {
+      impactOccurred: function (s) { post("web_app_trigger_haptic_feedback", { type: "impact", impact_style: s }); },
+      notificationOccurred: function (t) { post("web_app_trigger_haptic_feedback", { type: "notification", notification_type: t }); },
+      selectionChanged: function () { post("web_app_trigger_haptic_feedback", { type: "selection_change" }); } }
+  };
+  try { wa.initDataUnsafe = { user: JSON.parse(new URLSearchParams(wa.initData).get("user") || "null") || undefined }; } catch (e) {}
+  // ответы приложения телеги приходят сюда
+  function recv(type, data) {
+    if (type === "back_button_pressed") fire("backButtonClicked");
+    else if (type === "fullscreen_changed") { wa.isFullscreen = !!(data && data.is_fullscreen); fire("fullscreenChanged"); }
+    else if (type === "viewport_changed") fire("viewportChanged", data);
+    else if (type === "theme_changed") fire("themeChanged");
+    else if (type === "safe_area_changed") { wa.safeAreaInset = data || wa.safeAreaInset; fire("safeAreaChanged"); }
+    else if (type === "content_safe_area_changed") { wa.contentSafeAreaInset = data || wa.contentSafeAreaInset; fire("contentSafeAreaChanged"); }
+  }
+  window.Telegram = window.Telegram || {};
+  window.Telegram.WebView = { receiveEvent: recv, onEvent: on, offEvent: off, postEvent: post, initParams: hp };
+  window.TelegramGameProxy_receiveEvent = recv; window.TelegramGameProxy = { receiveEvent: recv };
+  window.addEventListener("message", function (e) { try { var m = JSON.parse(e.data); if (m && m.eventType) recv(m.eventType, m.eventData); } catch (x) {} });
+  window.Telegram.WebApp = wa;
+  post("web_app_request_safe_area"); post("web_app_request_content_safe_area"); post("web_app_request_viewport");
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -282,6 +349,72 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 .spt{height:8px;border-radius:8px;background:#ffffff14;overflow:hidden}
 .spt i{display:block;height:100%;width:100%;border-radius:8px;transform-origin:0 50%;transform:scaleX(0);transition:transform .35s ease;background:linear-gradient(90deg,#3d8bff,#8fd4ff,#e9f8ff);box-shadow:0 0 14px #6cc8ff}
 @media(max-height:620px){.spc{height:190px}.spcard{width:120px;height:165px;margin-left:-60px}.spw p{display:none}}
+
+/* ===== 27.11: полноэкранный режим, плавность на телефоне, фильтры, карточка предмета ===== */
+:root{--top:0px}
+body.full .bar{top:var(--top)}
+body.full::after{content:"";position:fixed;left:0;right:0;top:0;height:var(--top);background:#0c1a2a;z-index:6;pointer-events:none}
+body.full header{padding-top:calc(12px + var(--top))}
+body.full .pane{max-height:calc(100vh - var(--top) - 8px)}
+/* телефон: без размытий и тяжёлых теней — они и тормозили скролл */
+@media (hover:none),(max-width:760px){
+ .bar{backdrop-filter:none;-webkit-backdrop-filter:none;background:#0c1a2a}
+ .bd,.hrt,.info .pr,.x,.shade{backdrop-filter:none;-webkit-backdrop-filter:none}
+ .hrt{background:#08121fa6}.info .pr{background:#0a1626d9}
+ .art img{filter:none}
+ .it{box-shadow:0 0 0 1.5px var(--b,#3b5f80)}
+ .it:active{transform:none;opacity:.85}
+}
+.grid>.it{content-visibility:auto;contain-intrinsic-size:auto 240px}
+/* кнопка фильтров вместо ряда чипсов */
+.fbar{display:flex;align-items:center;gap:8px;padding-top:10px}
+.fbtn{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:#ffffff0a;color:var(--ink);font-weight:800;font-size:14px;cursor:pointer;white-space:nowrap}
+.fbtn svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.fbtn.on{border-color:#8cd7ff80;background:#8cd7ff1f;color:#dff4ff}
+.fbtn b{min-width:20px;height:20px;line-height:20px;padding:0 6px;border-radius:10px;background:#8cd7ff;color:#06263c;font-size:11.5px;text-align:center}
+.fsum{flex:1;min-width:0;color:var(--mut);font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.freset{flex:none;height:38px;padding:0 12px;border-radius:12px;border:0;background:transparent;color:#ff9ab3;font-weight:800;font-size:13px;cursor:pointer}
+.fpane{display:flex;flex-direction:column;overflow:hidden;padding:0}
+.fbody{flex:1;min-height:0;overflow:auto;padding:18px 18px 8px;overscroll-behavior:contain}
+.fpane h3{margin:6px 0 2px;font-size:20px;font-weight:900}
+.fg{margin-top:16px}
+.fg>div:first-child{color:var(--mut);font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.fos{display:flex;flex-wrap:wrap;gap:7px}
+.fo{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;border-radius:11px;border:1px solid var(--line);background:#ffffff08;color:#cfe0f0;font-weight:700;font-size:13.5px;cursor:pointer}
+.fo i{width:9px;height:9px;border-radius:50%;background:var(--rc,#8cd7ff);box-shadow:0 0 6px var(--rc,#8cd7ff)}
+.fo small{color:var(--mut);font-weight:700;font-size:12px}
+.fo.on{background:#8cd7ff26;border-color:#8cd7ffaa;color:#fff}.fo.on small{color:#bfe9ff}
+.fo.z{opacity:.35}
+.ffoot{flex:none;display:flex;gap:10px;padding:12px 18px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:#0f2034}
+.ffoot .btn{margin:0}.ffoot .btn.s{flex:0 0 38%}
+/* карточка предмета: сначала главное */
+.src{position:absolute;right:10px;bottom:8px;z-index:2;margin:0;padding:2px 7px;border-radius:7px;background:#06101c99;color:#cfe3f5b0;font-size:10.5px;font-weight:700}
+.big{overflow:hidden}
+.pb h2{font-size:23px}
+.pst{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;margin-top:12px;padding:10px 12px;border-radius:14px;background:var(--glass);border:1px solid var(--line)}
+.pst .pr{font-size:19px;display:inline-flex;align-items:center;gap:6px}.pst .vb{width:21px;height:21px}
+.pst .off{font-size:12px}
+.pst .pw{margin-left:auto;color:var(--mut);font-size:13px;font-weight:700;text-align:right}
+.pst .pw b{color:var(--ink)}
+.pst.no .pw{margin-left:0}
+.sty{padding:0 18px}
+.sty:not(:empty){margin-top:4px}
+.stl{text-align:left;font-size:11.5px}
+.sts{justify-content:flex-start}
+.st{width:48px;height:48px;border-radius:11px}
+details.more{margin:14px 0 4px;border-radius:14px;background:var(--glass);border:1px solid var(--line)}
+details.more summary{list-style:none;cursor:pointer;padding:13px 14px;font-weight:800;font-size:14px;display:flex;align-items:center}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::after{content:"";margin-left:auto;width:9px;height:9px;border-right:2px solid var(--mut);border-bottom:2px solid var(--mut);transform:rotate(45deg);transition:transform .2s}
+details.more[open] summary::after{transform:rotate(-135deg)}
+details.more>div{padding:0 14px 12px}
+details.more .rows{margin:8px 0 0;background:transparent;border:0}
+details.more .row{padding:10px 0}
+details.more .desc{margin:0 0 6px}
+.pb .btn.p,.pb .btn.h,.pb .btn.hon{margin-top:14px}
+/* экран загрузки: карточки появляются, когда картинка уже загружена */
+.spcard img{opacity:0;transition:opacity .35s}.spcard img.ok{opacity:1}
+.spcard.sk{background:linear-gradient(100deg,#ffffff08 30%,#ffffff14 50%,#ffffff08 70%) 0 0/200% 100%;animation:sh 1.2s infinite}
 </style>
 </head>
 <body>
@@ -307,7 +440,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
     <svg viewBox="0 0 24 24" fill="none" stroke="#cfe6ff" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
     <input class="search" id="q" type="search" placeholder="Найти в магазине" autocomplete="off" enterkeyhint="search">
   </div>
-  <div class="chips" id="chips"></div>
+  <div class="fbar" id="fbar"><button class="fbtn" id="fbtn"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Фильтры<b id="fcnt" hidden>0</b></button><span class="fsum" id="fsum"></span><button class="freset" id="freset" hidden>Сбросить</button></div>
 </div>
 <main id="list"></main>
 <div id="more"></div>
@@ -315,37 +448,65 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 <p class="note">Storm Radar · t.me/stwradar</p>
 </div>
 
+<div class="sheet" id="fsheet" aria-hidden="true"><div class="shade" id="fshade"></div><div class="pane fpane" id="fpane" role="dialog"></div></div>
 <div class="sheet" id="sheet" aria-hidden="true"><div class="shade" id="shade"></div><div class="pane" id="pane" role="dialog"></div></div>
 <div class="toast" id="toast"></div>
 <script>
 {
 const tg = window.Telegram && Telegram.WebApp;
 const VER_H = Math.floor(Date.now() / 3600000);
-// ---------- экран загрузки
+// ---------- экран загрузки: полоса честная — данные магазина (0–55%), разметка (55–65%), картинки первого экрана (65–100%)
 const splash = (() => {
   const el = document.getElementById("splash"), bar = document.getElementById("spb"), pc = document.getElementById("spp"), cards = document.getElementById("spc");
   const t0 = Date.now(); let p = 0, fin = false;
-  const set = v => { p = Math.max(p, v); bar.style.transform = "scaleX(" + p / 100 + ")"; pc.textContent = Math.round(p) + "%"; };
-  const crawl = setInterval(() => { if (p < 62) set(p + 2.5); }, 90);   // плавно ползёт, пока грузится магазин
-  set(8);
+  const set = v => { if (fin) return; p = Math.max(p, Math.min(v, 100)); bar.style.transform = "scaleX(" + p / 100 + ")"; pc.textContent = Math.round(p) + "%"; };
+  set(3);
+  const lbl = t => { const s = el.querySelector(".sprow span"); if (s) s.textContent = t; };
   return {
-    step(v, d) {
-      set(v);
-      // в веере — три самых интересных предмета сегодняшнего магазина
+    set, lbl,
+    // в веере — три самых интересных предмета сегодняшнего магазина, с картинкой, названием и ценой
+    fill(d) {
       try {
-        const pick = d.items.filter(i => i.img && i.kind !== "bundle").sort((a, b) => (b.isNew - a.isNew) || ((b.days || 0) - (a.days || 0))).slice(0, 3);
-        if (pick.length === 3) cards.innerHTML = [pick[1], pick[0], pick[2]].map((i, k) =>
-          '<div class="spcard s' + k + '" style="--c1:' + (i.c1 || "#2a5a8a") + ';--c2:' + (i.c2 || "#10233b") + '"><img src="' + i.img + '" alt=""><b>' + i.name.replace(/[<>&]/g, "") + '</b><span>' + i.price + '</span></div>').join("");
-      } catch (e) {}
+        const pick = d.items.filter(i => (i.th || i.img) && i.kind !== "bundle")
+          .sort((a, b) => ((b.days || 0) - (a.days || 0)) || (b.isNew - a.isNew)).slice(0, 3);
+        if (pick.length < 3) return [];
+        cards.innerHTML = [pick[1], pick[0], pick[2]].map((i, k) =>
+          '<div class="spcard s' + k + '" style="--c1:' + (i.c1 || "#2a5a8a") + ';--c2:' + (i.c2 || "#10233b") + '"><img src="' + (i.th || i.img) + '" alt="" decoding="async"><b>' + String(i.name).replace(/[<>&]/g, "") + '</b><span>' + i.price + ' В</span></div>').join("");
+        return [...cards.querySelectorAll("img")];
+      } catch (e) { return []; }
     },
     done() {
-      if (fin) return; fin = true; clearInterval(crawl); set(100);
+      if (fin) return; set(100); fin = true;
       const wait = Math.max(0, 900 - (Date.now() - t0));   // не мелькать, но и не держать зря
-      setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 450); }, wait + 220);
+      setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 450); }, wait + 250);
     },
   };
 })();
-setTimeout(() => splash.done(), 8000);   // на случай плохой сети — всё равно пускаем в приложение
+setTimeout(() => splash.done(), 12000);   // на случай очень плохой сети — всё равно пускаем в приложение
+// ждём картинки (загрузились или не получилось — неважно), но не дольше cap мс
+function waitImgs(imgs, onEach, cap) {
+  return new Promise(res => {
+    let left = imgs.length; if (!left) return res();
+    const one = () => { onEach && onEach(); if (--left <= 0) res(); };
+    imgs.forEach(im => { if (im.complete && im.naturalWidth) one(); else { im.addEventListener("load", one, { once: true }); im.addEventListener("error", one, { once: true }); } });
+    setTimeout(res, cap);
+  });
+}
+// json с прогрессом загрузки
+async function readJSON(url, onp) {
+  const r = await fetch(url, { cache: "no-store" });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  let guess = 0; try { guess = +localStorage.getItem("stw_shop_len") || 0; } catch (e) {}
+  const len = +r.headers.get("content-length") || 0, enc = r.headers.get("content-encoding");
+  const T = (len && !enc) ? len : (guess || 330000);
+  if (!r.body || !r.body.getReader || typeof TextDecoder === "undefined") { const j = await r.json(); onp(1); return j; }
+  const rd = r.body.getReader(), chunks = []; let got = 0;
+  for (;;) { const { done, value } = await rd.read(); if (done) break; chunks.push(value); got += value.length; onp(Math.min(got / T, 0.97)); }
+  try { localStorage.setItem("stw_shop_len", String(got)); } catch (e) {}
+  const buf = new Uint8Array(got); let o = 0; for (const c of chunks) { buf.set(c, o); o += c.length; }
+  onp(1);
+  return JSON.parse(new TextDecoder().decode(buf));
+}
 // подпись телеги: обычно в tg.initData, но телега на пк иногда отдаёт её только в адресе,
 // а после самообновления страницы — теряет; поэтому берём из всех мест и запоминаем
 let INIT = "";
@@ -357,8 +518,9 @@ try {
   if (INIT) { sessionStorage.setItem("stw_init", INIT); localStorage.setItem("stw_init", INIT); }
 } catch (e) {}
 const inTg = !!(tg && (INIT || (tg.platform && tg.platform !== "unknown")));
+const canSync = !!INIT;
 // ---------- самообновление: телега любит держать старую версию страницы в кэше
-const BUILD = "2026-11-26k";
+const BUILD = "2026-11-27a";
 fetch("index.html?nocache=" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(t => {
   const m = t.match(/const BUILD = "([^"]+)"/);
   if (m && m[1] !== BUILD) {
@@ -366,15 +528,26 @@ fetch("index.html?nocache=" + Date.now(), { cache: "no-store" }).then(r => r.tex
     if (tried !== m[1]) { try { sessionStorage.setItem("stw_upd", m[1]); } catch (e) {} location.replace(location.pathname + "?v=" + m[1] + location.hash); }
   }
 }).catch(() => {});
+// в полноэкранном режиме сверху кнопки телеги («закрыть», «⋯») и часы — опускаем под них шапку и панель поиска
+function applyTop() {
+  let t = 0;
+  if (document.body.classList.contains("full") && tg && tg.isFullscreen) {
+    const a = tg.safeAreaInset || {}, c = tg.contentSafeAreaInset || {};
+    t = (+a.top || 0) + (+c.top || 0);
+    if (!t) t = /iP(hone|ad|od)/.test(navigator.userAgent) ? 104 : 84;   // телега не сказала размеры — берём типичные
+  }
+  document.documentElement.style.setProperty("--top", t + "px");
+}
 if (inTg) {
   try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {}
   const canFs = typeof tg.requestFullscreen === "function" && (!tg.isVersionAtLeast || tg.isVersionAtLeast("8.0"));
   if (!canFs) console.log("fullscreen: телеге нужна версия Bot API 8.0+, сейчас " + tg.version);
   if (canFs) {
     const b = document.getElementById("fs"); b.hidden = false;
-    const paint = () => { document.body.classList.toggle("full", !!tg.isFullscreen); b.setAttribute("aria-label", tg.isFullscreen ? "Свернуть" : "На весь экран"); };
+    const paint = () => { document.body.classList.toggle("full", !!tg.isFullscreen); b.setAttribute("aria-label", tg.isFullscreen ? "Свернуть" : "На весь экран"); applyTop(); };
     b.onclick = () => { try { tg.isFullscreen ? tg.exitFullscreen() : tg.requestFullscreen(); } catch (e) {} };
     tg.onEvent("fullscreenChanged", paint); paint();
+    try { tg.onEvent("safeAreaChanged", applyTop); tg.onEvent("contentSafeAreaChanged", applyTop); } catch (e) {}
   } else if (document.fullscreenEnabled) {
     // запасной вариант (например, телеграм на пк): обычный полноэкранный режим окна
     const b = document.getElementById("fs"); b.hidden = false;
@@ -413,7 +586,7 @@ const haptic = t => { try { inTg && tg.HapticFeedback && (t === "sel" ? tg.Hapti
 
 let packs = null;
 let shop = [], vbIcon = "", today = Date.now(), catalog = null, catLoading = false;
-let view = "shop", cat = "all", query = "", shown = PAGE, current = [];
+let view = "shop", query = "", shown = PAGE, current = [];
 const inShop = new Map();   // предмет -> где его сейчас можно купить (сам или в наборе)
 const ownShop = new Map();  // предмет -> позиция, где продаётся именно он сам
 
@@ -433,7 +606,11 @@ function fromCloud() {
 let syncSt = "", syncBad = false;
 function setSync(t, bad) { syncSt = t; syncBad = !!bad; const el = document.getElementById("syncst"); if (el) { el.textContent = t; el.classList.toggle("bad", syncBad); } }
 async function pullFav() {
-  if (!inTg || !API || !INIT) { setSync("⚠ телега не передала подпись (" + (tg ? (tg.platform || "?") + " " + (tg.version || "?") + ", адрес: " + (location.hash ? "есть" : "пусто") : "не телега") + ") — открой через кнопку «Магазин» в боте", true); return; }
+  if (!API || !INIT) {
+    if (!tg || !tg.platform || tg.platform === "unknown") setSync("открой через бота @STWradar_bot, чтобы избранное сохранялось на сервере", true);
+    else setSync("⚠ телега не передала подпись (" + tg.platform + " " + (tg.version || "?") + (tg._shim ? ", без telegram.org" : "") + ") — закрой и открой через кнопку «Магазин» в боте", true);
+    return;
+  }
   try {
     const r = await (await fetch(API + "/api/fav", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ initData: INIT, get: 1 }) })).json();
     if (!r.ok || !Array.isArray(r.favs)) { setSync("⚠ сервер не принял: " + (r.error || "старый воркер"), true); return; }   // старый воркер — ничего не трогаем
@@ -470,7 +647,7 @@ function fillFav() {
 function saveFav() { favT = Date.now(); keepLocal(); pushFav(); }
 let syncT;
 function pushFav() {
-  if (!inTg || !API) return;
+  if (!API || !INIT) return;
   clearTimeout(syncT);
   syncT = setTimeout(() => {
     fetch(API + "/api/fav", { method: "POST", headers: { "content-type": "application/json" },
@@ -495,7 +672,7 @@ function askWrite() {
 // ---------- предметы
 const fromCat = c => ({ id: c.id, keys: [c.id], name: c.n, kind: c.k, typeName: c.t, rarity: c.r, set: c.s, desc: c.d,
   img: c.b || c.i, thumb: c.i, src: c.o || [], intro: c.in || "", lastSeen: c.h, times: c.c, firstSeen: c.f, c1: c.c1 || "#22456a", c2: c.c2 || "#11243b", rb: c.c1 });
-const fromShop = it => ({ ...it, thumb: it.img });
+const fromShop = it => ({ ...it, thumb: it.th || it.img });   // в сетке — лёгкая картинка, в карточке — крупная
 
 function badge(it, mode) {
   if (mode !== "shop") return inShop.has(it.id) ? '<span class="bd s">в магазине</span>' : "";
@@ -518,7 +695,7 @@ function card(it, mode) {
     : inB ? '<span class="till m">в магазине в наборе</span>'
     : '<span class="till m">' + (it.lastSeen ? "был " + fmt(dayOf(it.lastSeen), true) : "не продавался") + '</span>';
   return '<button class="it" data-id="' + esc(it.id) + '" style="--c1:' + it.c1 + ';--c2:' + it.c2 + ';--b:' + rb + ';--g:' + rb + '">' +
-    '<div class="art">' + (pic ? '<img loading="lazy" decoding="async" src="' + esc(pic) + '"' + (it.alt ? ' data-alt="' + esc(it.alt) + '"' : "") + ' alt="">' : "") + badge(it, mode) +
+    '<div class="art">' + (pic ? '<img loading="lazy" decoding="async" src="' + esc(pic) + '"' + (pic !== it.img && it.img ? ' data-alt="' + esc(it.img) + '"' + (it.alt ? ' data-alt2="' + esc(it.alt) + '"' : "") : it.alt ? ' data-alt="' + esc(it.alt) + '"' : "") + ' alt="">' : "") + badge(it, mode) +
     '<span class="hrt' + (fav[it.keys[0]] ? " on" : "") + '" role="button" aria-label="В избранное" data-h="1">' + IC.heart + '</span>' + '<div class="nm">' + (it.kind === "bundle" ? '<small class="nbd">набор' + (it.parts && it.parts.length ? ' · ' + it.parts.length + ' ' + plural(it.parts.length, "предмет", "предмета", "предметов") : "") + '</small>'
       : mode === "shop" && it.n > 1 ? '<small class="nbd g">комплект · ' + it.n + '</small>' : "") + esc(it.name) + '</div></div>' +
     '<div class="info">' + bottom + '</div></button>';
@@ -529,25 +706,117 @@ const SRC_ICO = {};
 const SECI = {new:['<svg viewBox="0 0 24 24"><path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8zM19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9z"/></svg>',"#7cf0b0"],back:['<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 9M20 4v5h-5M20 12a8 8 0 0 1-13.7 5.6L4 15M4 20v-5h5"/></svg>',"#ffd166"],bundle:['<svg viewBox="0 0 24 24"><path d="M4 10h16v10H4zM3 7h18v3H3zM12 7v13M12 7c-2-4-6-3-5-.5S12 7 12 7zm0 0c2-4 6-3 5-.5S12 7 12 7z"/></svg>',"#ff9bd1"],outfit:['<svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 1 1 0 6 3 3 0 0 1 0-6zM6 21v-4a6 6 0 0 1 12 0v4"/></svg>',"#8cd7ff"],emote:['<svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zm10-2a3 3 0 1 1-3-3 3 3 0 0 1 3 3z"/></svg>',"#c59bff"],pickaxe:['<svg viewBox="0 0 24 24"><path d="M14 6l4 4M4 20l9-9M9 4c4-1 9 0 11 6-3-2-6-3-11-6z"/></svg>',"#ffb37a"],glider:['<svg viewBox="0 0 24 24"><path d="M2 9c6-5 14-5 20 0l-10 3zM12 12v8M9 20h6"/></svg>',"#9be7ff"],backpack:['<svg viewBox="0 0 24 24"><path d="M7 8a5 5 0 0 1 10 0v12H7zM9 4h6M9 14h6"/></svg>',"#ffd88c"],wrap:['<svg viewBox="0 0 24 24"><path d="M4 20l4-1 11-11-3-3L5 16zM14 6l3 3"/></svg>',"#ff8fa3"],shoe:['<svg viewBox="0 0 24 24"><path d="M3 16h18v3H3zM3 16l1-8 5 2 3 3 7 1 2 2"/></svg>',"#b6f09c"],contrail:['<svg viewBox="0 0 24 24"><path d="M3 17c4 0 5-10 10-10M7 20c4 0 5-7 9-7M17 4l3 3-3 3"/></svg>',"#a7b8ff"],music:['<svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3zm10-2a3 3 0 1 1-3-3 3 3 0 0 1 3 3z"/></svg>',"#c59bff"],other:['<svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4v10l-8 4-8-4zM4 7l8 4 8-4M12 11v10"/></svg>',"#b3c8dc"],cart:['<svg viewBox="0 0 24 24"><path d="M3 4h2l2 11h11l2-8H6M9 20h.01M17 20h.01"/></svg>',"#7cf0b0"],wait:['<svg viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2"/></svg>',"#ffd166"],card:['<svg viewBox="0 0 24 24"><path d="M3 6h18v12H3zM3 10h18M7 15h4"/></svg>',"#ffd166"],archive:['<svg viewBox="0 0 24 24"><path d="M3 5h18v4H3zM5 9v10h14V9M10 13h4"/></svg>',"#b3c8dc"]};
 const SEC_ICO = { bundle: "🎁", outfit: "🧍", emote: "💃", pickaxe: "⛏️", glider: "🪂", backpack: "🎒", wrap: "🎨", shoe: "👟", contrail: "✨", music: "🎵", other: "📦" };
 
-// ---------- списки
-const match = (txt, q) => txt.toLowerCase().includes(q);
+// ---------- списки и фильтры
+const match = (txt, q) => String(txt || "").toLowerCase().includes(q);
+const RARS = [["Обычный","#9a9a9a"],["Необычный","#69bb1e"],["Редкий","#3dc8f8"],["Эпический","#c359ff"],["Легендарный","#ea8d23"],["Мифический","#ffd84a"],["Экзотический","#76d6e3"],["Трансцендентный","#ff4f7d"]];
+const RARSET = new Set(RARS.map(r => r[0]));
+const F_KINDS = [["outfit","Скины"],["emote","Эмоции"],["pickaxe","Кирки"],["glider","Дельтапланы"],["backpack","Рюкзаки"],["wrap","Обёртки"],["shoe","Кроссовки"],["contrail","Следы"],["music","Музыка"],["other","Остальное"]];
+const PRICES = [["p1","до 500",p => p <= 500],["p2","500–1000",p => p > 500 && p <= 1000],["p3","1000–1500",p => p > 1000 && p <= 1500],["p4","больше 1500",p => p > 1500]];
+const SORTS = { shop: [["game","как в игре"],["cheap","сначала дешевле"],["dear","сначала дороже"],["long","дольше всего не было"],["az","по алфавиту"]],
+                all: [["game","недавние"],["long","дольше всего не было"],["az","по алфавиту"]] };
+const F0 = () => ({ kind: new Set(), rar: new Set(), ser: new Set(), st: new Set(), pr: new Set(), sort: "game" });
+let flt = F0();
+const fActive = () => flt.kind.size + flt.rar.size + flt.ser.size + flt.st.size + flt.pr.size + (flt.sort !== "game" ? 1 : 0);
+const endOfToday = () => { const d = new Date(); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); };
+// единый вид предмета для фильтров (магазин и каталог устроены по-разному)
+function fxOf(it) {
+  if (it.k !== undefined) {   // из каталога
+    const s = ownShop.get(it.id) || inShop.get(it.id);
+    const ls = it.h ? Math.round((today - dayOf(it.h)) / DAY) : null;
+    return { kind: it.k, r: it.r || "", nm: it.n, price: s ? s.price : null, absent: s ? 0 : ls, inshop: !!s, never: !it.h, isNew: false, back: false, out: null };
+  }
+  return { kind: it.kind, r: it.rarity || "", nm: it.name, price: it.price, absent: it.days || 0, inshop: true, never: false, isNew: !!it.isNew, back: !!it.returned, out: it.out ? Date.parse(it.out) : null };
+}
+const ST_SHOP = [["new","Новинки",x => x.isNew],["back","Вернулись",x => x.back],["d100","Не было 100+ дней",x => x.absent >= 100],["d365","Не было 365+ дней",x => x.absent >= 365],["out","Уходит сегодня",x => x.out && x.out <= endOfToday()]];
+const ST_ALL = [["now","Сейчас в магазине",x => x.inshop],["d365","Не было 365+ дней",x => x.absent != null && x.absent >= 365],["never","Не продавался",x => x.never]];
+const stList = () => view === "all" ? ST_ALL : ST_SHOP;
+// проходит ли предмет фильтры (skip — какую группу не учитывать: так считаем числа в панели)
+function passF(x, skip) {
+  if (skip !== "kind" && flt.kind.size && !(flt.kind.has(x.kind) || (x.kind === "bundle" && flt.kind.has("bundle")))) return false;
+  if (skip !== "rar" && flt.rar.size && !flt.rar.has(x.r)) return false;
+  if (skip !== "ser" && flt.ser.size && !flt.ser.has(x.r)) return false;
+  if (skip !== "st" && flt.st.size) { const L = stList(); for (const k of flt.st) { const d = L.find(z => z[0] === k); if (d && !d[2](x)) return false; } }
+  if (skip !== "pr" && flt.pr.size) { if (x.price == null || ![...flt.pr].some(k => PRICES.find(z => z[0] === k)[2](x.price))) return false; }
+  return true;
+}
+function sortL(l, get) {
+  const by = flt.sort;
+  if (by === "game") return l;
+  const a = l.map(i => [i, get(i)]);
+  if (by === "cheap") a.sort((p, q) => (p[1].price ?? 1e9) - (q[1].price ?? 1e9));
+  else if (by === "dear") a.sort((p, q) => (q[1].price ?? -1) - (p[1].price ?? -1));
+  else if (by === "long") a.sort((p, q) => (q[1].absent ?? -1) - (p[1].absent ?? -1));
+  else if (by === "az") a.sort((p, q) => p[1].nm.localeCompare(q[1].nm, "ru"));
+  return a.map(z => z[0]);
+}
 function shopList() {
   const q = query.trim().toLowerCase();
-  return shop.filter(it => (cat === "all" || (cat === "new" ? it.isNew : cat === "back" ? it.returned : it.kind === cat)) &&
-    (!q || match(it.name, q) || match(it.typeName, q) || match(it.set, q)));
+  const l = shop.filter(it => passF(fxOf(it)) && (!q || match(it.name, q) || match(it.typeName, q) || match(it.set, q) || match(it.rarity, q)));
+  return sortL(l, fxOf);
 }
 function allList() {
   if (!catalog) return [];
   const q = query.trim().toLowerCase();
-  return catalog.filter(c => (cat === "all" || c.k === cat) && (!q || match(c.n, q) || match(c.s, q) || match(c.r, q)));
+  const l = catalog.filter(c => passF(fxOf(c)) && (!q || match(c.n, q) || match(c.s, q) || match(c.r, q)));
+  return sortL(l, fxOf);
 }
+// кнопка «Фильтры» и строка с выбранным
 function chips() {
-  const src = view === "all" ? ALL_CATS : SHOP_CATS;
-  const n = k => view === "all"
-    ? (catalog ? (k === "all" ? catalog.length : catalog.filter(c => c.k === k).length) : 0)
-    : (k === "all" ? shop.length : k === "new" ? shop.filter(i => i.isNew).length : k === "back" ? shop.filter(i => i.returned).length : shop.filter(i => i.kind === k).length);
-  $("chips").innerHTML = src.map(([k, t]) => { const c = n(k); return c || k === "all" ? '<button class="chip' + (k === cat ? " on" : "") + '" data-c="' + k + '">' + t + '<b>' + c + '</b></button>' : ""; }).join("");
+  const n = fActive();
+  $("fcnt").hidden = !n; $("fcnt").textContent = n;
+  $("fbtn").classList.toggle("on", n > 0);
+  $("freset").hidden = !n;
+  const names = [];
+  const lab = (arr, k) => (arr.find(z => z[0] === k) || [k, k])[1];
+  flt.kind.forEach(k => names.push(k === "bundle" ? "Наборы" : lab(F_KINDS, k)));
+  flt.rar.forEach(k => names.push(k)); flt.ser.forEach(k => names.push(k));
+  flt.st.forEach(k => names.push(lab(stList(), k))); flt.pr.forEach(k => names.push(lab(PRICES, k)));
+  if (flt.sort !== "game") names.push(lab(SORTS[view === "all" ? "all" : "shop"], flt.sort));
+  $("fsum").textContent = names.length ? names.join(" · ") : (view === "all" ? "тип, редкость, серии" : "тип, редкость, цена, сортировка");
 }
+function fSource() { return view === "all" ? (catalog || []) : shop; }
+function openFilters() {
+  try { $("q").blur(); } catch (e) {}
+  const src = fSource().map(fxOf);
+  const cnt = (grp, test) => src.reduce((n, x) => n + (passF(x, grp) && test(x) ? 1 : 0), 0);
+  const opt = (grp, k, label, n, on, color) => (n || on) ? '<button class="fo' + (on ? " on" : "") + '" data-g="' + grp + '" data-k="' + esc(k) + '"' + (color ? ' style="--rc:' + color + '"' : "") + '>' + (color ? "<i></i>" : "") + esc(label) + ' <small>' + n + '</small></button>' : "";
+  const group = (title, html) => html.trim() ? '<div class="fg"><div>' + title + '</div><div class="fos">' + html + '</div></div>' : "";
+  const kinds = (view === "all" ? [] : [["bundle","Наборы"]]).concat(F_KINDS);
+  const sers = [...new Set(src.map(x => x.r).filter(r => r && !RARSET.has(r)))].sort((a, b) => a.localeCompare(b, "ru"));
+  const sorts = SORTS[view === "all" ? "all" : "shop"];
+  const total = src.filter(x => passF(x)).length;
+  $("fpane").innerHTML = '<div class="fbody"><div class="grab"></div><h3>Фильтры</h3>' +
+    group("Сортировка", sorts.map(([k, t]) => '<button class="fo' + (flt.sort === k ? " on" : "") + '" data-g="sort" data-k="' + k + '">' + t + '</button>').join("")) +
+    group("Тип", kinds.map(([k, t]) => opt("kind", k, t, cnt("kind", x => x.kind === k), flt.kind.has(k))).join("")) +
+    group("Редкость", RARS.map(([k, c]) => opt("rar", k, k, cnt("rar", x => x.r === k), flt.rar.has(k), c)).join("")) +
+    group("Серии", sers.map(k => opt("ser", k, k, cnt("ser", x => x.r === k), flt.ser.has(k))).join("")) +
+    group(view === "all" ? "Статус" : "В магазине", stList().map(([k, t, f]) => opt("st", k, t, cnt("st", f), flt.st.has(k))).join("")) +
+    (view === "all" ? "" : group("Цена", PRICES.map(([k, t, f]) => opt("pr", k, t, cnt("pr", x => x.price != null && f(x.price)), flt.pr.has(k))).join(""))) +
+    '</div><div class="ffoot"><button class="btn s" id="fclr">Сбросить</button><button class="btn p" id="fok">' + (total ? "Показать " + total : "Ничего не найдено") + '</button></div>';
+  if (!$("fsheet").classList.contains("on")) {
+    $("fsheet").classList.add("on"); $("fsheet").setAttribute("aria-hidden", "false");
+    if (inTg && tg.BackButton) { tg.BackButton.show(); tg.BackButton.onClick(closeFilters); }
+  }
+}
+function closeFilters() {
+  if (!$("fsheet").classList.contains("on")) return;
+  $("fsheet").classList.remove("on"); $("fsheet").setAttribute("aria-hidden", "true");
+  if (inTg && tg.BackButton) { tg.BackButton.offClick(closeFilters); if (!$("sheet").classList.contains("on")) tg.BackButton.hide(); }
+}
+function applyF() { shown = PAGE; chips(); render(); }
+$("fbtn").onclick = () => { haptic("sel"); openFilters(); };
+$("freset").onclick = () => { flt = F0(); haptic("sel"); applyF(); window.scrollTo({ top: 0 }); };
+$("fshade").onclick = closeFilters;
+$("fpane").addEventListener("click", e => {
+  const b = e.target.closest(".fo");
+  if (b) {
+    const g = b.dataset.g, k = b.dataset.k;
+    if (g === "sort") flt.sort = k; else flt[g].has(k) ? flt[g].delete(k) : flt[g].add(k);
+    haptic("sel"); const st = $("fpane").querySelector(".fbody").scrollTop; openFilters(); $("fpane").querySelector(".fbody").scrollTop = st; applyF(); return;
+  }
+  if (e.target.closest("#fclr")) { flt = F0(); haptic("sel"); openFilters(); applyF(); return; }
+  if (e.target.closest("#fok")) { closeFilters(); window.scrollTo({ top: 0, behavior: "smooth" }); }
+});
 
 const FAV_PAGE = 48; let favShown = FAV_PAGE;
 function render() {
@@ -555,7 +824,7 @@ function render() {
   const n = Object.keys(fav).length;
   $("cnt").textContent = n > 99 ? "99+" : n; $("cnt").classList.toggle("z", !n);
   $("bar").hidden = view === "packs" || (view === "mine" && n < 13);   // в избранном поиск нужен, когда предметов много
-  $("chips").hidden = view === "mine";
+  $("fbar").hidden = view === "mine";
   empty.hidden = true;
 
   if (view === "mine") {
@@ -590,7 +859,7 @@ function render() {
     list.innerHTML = current.length ? grid(current.slice(0, shown).map(fromCat), "all") : "";
   } else {
     const l = shopList();
-    if (cat === "all" && !query.trim()) {
+    if (!fActive() && !query.trim()) {
       const parts = [], used = new Set();
       const add = (t, arr) => { if (arr.length) { parts.push(sec(t, arr.length) + grid(arr, "shop")); arr.forEach(i => used.add(i)); } };
       const add2 = (t, arr, ico, sub) => { if (arr.length) { parts.push(sec(t, arr.length, ico, sub) + grid(arr, "shop")); arr.forEach(i => used.add(i)); } };
@@ -606,7 +875,7 @@ function render() {
     } else list.innerHTML = l.length ? grid(l, "shop") : "";
     current = l;
   }
-  if (!current.length) { empty.hidden = false; empty.innerHTML = "<b>Ничего не нашлось</b><p>Попробуй другое название или фильтр.</p>"; }
+  if (!current.length) { empty.hidden = false; empty.innerHTML = "<b>Ничего не нашлось</b><p>" + (fActive() ? 'Попробуй убрать часть фильтров. <button class="freset" onclick="document.getElementById(\'freset\').click()">Сбросить фильтры</button>' : "Попробуй другое название.") + "</p>"; }
 }
 
 // плавное появление картинок
@@ -614,6 +883,7 @@ document.addEventListener("load", e => { if (e.target.tagName === "IMG") e.targe
 document.addEventListener("error", e => {
   const t = e.target; if (t.tagName !== "IMG") return;
   if (t.dataset.alt && !t.dataset.tried) { t.dataset.tried = "1"; t.src = t.dataset.alt; return; }   // запасная картинка
+  if (t.dataset.alt2 && t.dataset.tried === "1") { t.dataset.tried = "2"; t.src = t.dataset.alt2; return; }
   t.classList.add("bad");
 }, true);
 
@@ -772,31 +1042,38 @@ function openItem(it) {
   const rb = it.rb || it.c1;
   const last = s ? s.lastSeen : it.lastSeen, times = (s ? s.times : it.times) || 0;
   const rows = [];
-  if (s) {
-    rows.push([IC.coin, "Цена", s.price + " В-баксов"]);
-    if (s.regular > s.price) rows.push([IC.gem, "Выгода", "−" + Math.round((1 - s.price / s.regular) * 100) + "% · по отдельности " + s.regular]);
-    if (s.out) rows.push([IC.clock, "В магазине до", fmt(Date.parse(s.out), true)]);
-  }
+  if (s && s.regular > s.price) rows.push([IC.gem, "Выгода", "−" + Math.round((1 - s.price / s.regular) * 100) + "% · по отдельности " + s.regular]);
   rows.push([IC.back, "Последний раз", s && s.isNew ? "впервые сегодня" : s && s.days === 1 ? "вчера" : last ? fmt(dayOf(last), true) + (s && s.days ? " · " + s.days + " " + plural(s.days, "день", "дня", "дней") + " назад" : "") : "не продавался"]);
   rows.push([IC.repeat, "Был в магазине", times ? times + " " + plural(times, "раз", "раза", "раз") : "ни разу"]);
   if (it.firstSeen || (s && s.firstSeen)) rows.push([IC.star, "Впервые в магазине", fmt(dayOf(it.firstSeen || s.firstSeen), true)]);
   if (it.intro) rows.push([IC.gem, "Появился в игре", it.intro]);
   const srcs = (it.src && it.src.length ? it.src : (times ? ["Магазин"] : []));
   const tags = [it.rarity ? '<span class="tag rar">' + esc(it.rarity) + '</span>' : "", it.typeName ? '<span class="tag">' + esc(it.typeName) + '</span>' : "", it.set ? '<button class="tag tg-l" id="settag">' + esc(it.set) + ' ›</button>' : ""].join("");
+  // главное одной строкой: цена и до какого числа — или когда был в последний раз
+  const absent = last ? Math.round((today - dayOf(last)) / DAY) : null;
+  const pst = s
+    ? '<div class="pst"><span class="pr">' + vb() + s.price + '</span>' + (s.regular > s.price ? '<span class="off">−' + Math.round((1 - s.price / s.regular) * 100) + '%</span>' : "") +
+      '<span class="pw">' + (s.out ? 'в магазине до <b>' + fmt(Date.parse(s.out)) + '</b>' : "в магазине") + (s.isNew ? '<br>новинка' : s.days >= 2 ? '<br>не было ' + s.days + ' ' + plural(s.days, "день", "дня", "дней") : "") + '</span></div>'
+    : inB ? '<div class="pst no"><span class="pw">сейчас в магазине <b>в наборе</b> за ' + inB.price + ' В-баксов</span></div>'
+    : '<div class="pst no"><span class="pw">' + (last ? 'последний раз <b>' + fmt(dayOf(last), true) + '</b>' + (absent > 0 ? ' · ' + absent + ' ' + plural(absent, "день", "дня", "дней") + ' назад' : "") : 'ещё не продавался в магазине') + '</span></div>';
   curSound = it.kind === "emote" || it.kind === "music";
   const on = () => !!fav[key];
   $("pane").innerHTML =
     '<div class="grab"></div><div class="big" style="--c1:' + it.c1 + ';--c2:' + it.c2 + ';--b:' + rb + '">' + (it.img ? '<img src="' + esc(it.img) + '"' + (it.alt ? ' data-alt="' + esc(it.alt) + '"' : "") + ' alt="">' : "") +
-    '<button class="x" id="x" aria-label="Закрыть">✕</button></div>' +
+    '<a class="src" id="src" hidden target="_blank" rel="noopener">видео: fortnite.gg</a><button class="x" id="x" aria-label="Закрыть">✕</button></div>' +
     '<div class="vbar" id="vbar"><button id="mute" aria-label="Звук">' + SND_ON + '</button><input id="vr" type="range" min="0" max="100" step="5" aria-label="Громкость"><span id="vv"></span></div>' +
-    '<a class="src" id="src" hidden target="_blank" rel="noopener">видео: fortnite.gg</a><div class="sty" id="sty" style="--b:' + rb + '"></div>' +
-    '<div class="pb" style="--b:' + rb + '"><h2>' + esc(it.name) + '</h2><div class="tags">' + tags + '</div>' +
-    (it.desc ? '<p class="desc">' + esc(it.desc) + '</p>' : "") +
-    (srcs.length ? '<div class="lbl">Где получить</div><div class="srcs">' + srcs.map(x => '<span class="sc"><i></i>' + esc(x) + '</span>').join("") + '</div>' : "") +
-    '<div class="rows">' + rows.map(([ic, a, b]) => '<div class="row">' + ic + '<span>' + a + '</span><b>' + esc(b) + '</b></div>').join("") + '</div>' +
-    (it.parts && it.parts.length ? '<div class="lbl">В наборе</div><div class="parts">' + it.parts.map(p => '<div class="part">' + (p.img ? '<img loading="lazy" src="' + esc(p.img) + '" alt="">' : "") + '<div>' + esc(p.name) + '</div></div>').join("") + '</div>' : "") +
-    (inB ? '<div class="lbl">Сейчас в магазине в наборе</div><button class="prow in" data-sid="' + esc(inB.id) + '"><img loading="lazy" src="' + esc(inB.img) + '" alt=""><span class="pr-t"><b>' + esc(inB.name) + '</b><em>' + inB.price + ' В-баксов</em></span></button>' : "") +
-    '<div id="ext"></div><button class="btn p" id="w"></button><button class="btn s" id="share">Поделиться с другом</button></div>';
+    '<div class="pb" style="--b:' + rb + '"><h2>' + esc(it.name) + '</h2><div class="tags">' + tags + '</div>' + pst +
+    '<div class="sty" id="sty" style="--b:' + rb + ';padding:0"></div>' +
+    '<button class="btn p" id="w"></button>' +
+    (it.parts && it.parts.length ? '<div class="lbl">В наборе · ' + it.parts.length + '</div><div class="parts">' + it.parts.map(p => '<div class="part">' + (p.img ? '<img loading="lazy" src="' + esc(p.img) + '" alt="">' : "") + '<div>' + esc(p.name) + '</div></div>').join("") + '</div>' : "") +
+    (inB ? '<div class="lbl">Сейчас в магазине в наборе</div><button class="prow in" data-sid="' + esc(inB.id) + '"><img loading="lazy" src="' + esc(inB.th || inB.img) + '" alt=""><span class="pr-t"><b>' + esc(inB.name) + '</b><em>' + inB.price + ' В-баксов</em></span></button>' : "") +
+    '<div id="ext"></div>' +
+    '<details class="more"><summary>Подробнее о предмете</summary><div>' +
+      (it.desc ? '<p class="desc">' + esc(it.desc) + '</p>' : "") +
+      (srcs.length ? '<div class="lbl">Где получить</div><div class="srcs">' + srcs.map(x => '<span class="sc"><i></i>' + esc(x) + '</span>').join("") + '</div>' : "") +
+      '<div class="rows">' + rows.map(([ic, a, b]) => '<div class="row">' + ic + '<span>' + a + '</span><b>' + esc(b) + '</b></div>').join("") + '</div>' +
+    '</div></details>' +
+    '<button class="btn s" id="share">Поделиться с другом</button></div>';
   const paint = () => { const b = $("w"); b.className = "btn " + (on() ? "hon" : "h"); b.innerHTML = IC.heart + (on() ? "В избранном" : (s ? "Добавить в избранное" : "Сообщить, когда появится")); };
   paint();
   $("sheet").classList.add("on"); $("sheet").setAttribute("aria-hidden", "false");
@@ -849,7 +1126,7 @@ function loadVideo2(id, my) {
       if (v.videoWidth && v.videoHeight) {
         const r = Math.max(v.videoWidth / v.videoHeight, 0.8);
         big.style.aspectRatio = "auto"; big.style.width = "100%";
-        big.style.height = Math.round(Math.min(big.clientWidth / r, window.innerHeight * (window.innerWidth >= 760 ? 0.5 : 0.62))) + "px";
+        big.style.height = Math.round(Math.min(big.clientWidth / r, window.innerHeight * (window.innerWidth >= 760 ? 0.5 : 0.52))) + "px";
       }
       big.classList.add("vid"); if (curSound) $("vbar").classList.add("on");
       if (d.source) { $("src").href = d.source; $("src").hidden = false; }
@@ -902,18 +1179,11 @@ function itemById(id) {
 // ---------- события
 $("shade").onclick = close;
 document.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+// клавиатура на iPhone сама не прячется: убираем по «найти», по тапу мимо поля и при начале прокрутки
+$("q").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
+document.addEventListener("touchstart", e => { const q = $("q"); if (document.activeElement === q && !e.target.closest(".sbox")) q.blur(); }, { passive: true });
 let qT;
 $("q").addEventListener("input", e => { clearTimeout(qT); qT = setTimeout(() => { query = e.target.value; shown = PAGE; render(); }, 120); });
-{
-  const c = $("chips");
-  c.addEventListener("wheel", e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { c.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
-  let down = false, sx = 0, sl = 0, moved = false;
-  c.addEventListener("pointerdown", e => { if (e.pointerType !== "mouse") return; down = true; moved = false; sx = e.clientX; sl = c.scrollLeft; });
-  window.addEventListener("pointermove", e => { if (!down) return; const dx = e.clientX - sx; if (Math.abs(dx) > 4) { moved = true; c.classList.add("drag"); } c.scrollLeft = sl - dx; });
-  window.addEventListener("pointerup", () => { if (!down) return; down = false; setTimeout(() => c.classList.remove("drag"), 0); });
-  c.addEventListener("click", e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
-}
-$("chips").addEventListener("click", e => { const b = e.target.closest(".chip"); if (!b) return; cat = b.dataset.c; shown = PAGE; haptic("sel"); chips(); render(); });
 $("list").addEventListener("click", e => {
   const pk = e.target.closest(".prow,.pkl");
   if (pk) { openPack(packs[+pk.dataset.p]); return; }
@@ -942,7 +1212,7 @@ function loadCatalog() {
 }
 function setView(v) {
   if (v === view) return;
-  view = v; cat = "all"; query = ""; shown = PAGE; favShown = FAV_PAGE; $("q").value = "";
+  view = v; flt = F0(); query = ""; shown = PAGE; favShown = FAV_PAGE; $("q").value = "";
   $("q").placeholder = v === "all" ? "Найти любой предмет" : v === "mine" ? "Найти в избранном" : "Найти в магазине";
   ["tShop", "tAll", "tPacks", "tMine"].forEach((id, i) => $(id).classList.toggle("on", ["shop", "all", "packs", "mine"][i] === v));
   if (v === "all" || v === "packs") loadCatalog();
@@ -955,8 +1225,9 @@ $("tPacks").onclick = () => setView("packs");
 $("tMine").onclick = () => setView("mine");
 
 $("list").innerHTML = '<div class="grid">' + '<div class="sk"></div>'.repeat(8) + '</div>';
-fetch("data/shop.json?v=" + Math.floor(Date.now() / 60000), { cache: "no-store" }).then(r => r.json()).then(d => {
-  splash.step(70, d);
+readJSON("data/shop.json?v=" + Math.floor(Date.now() / 60000), f => splash.set(3 + f * 52)).then(async d => {
+  splash.lbl("Готовим витрину…");
+  const cardImgs = splash.fill(d);
   vbIcon = d.vbuck || ""; today = dayOf(d.date);
   shop = d.items.slice().sort((a, b) => (a.order - b.order));
   // для каталога: если предмет продаётся и отдельно, и в наборе — показываем отдельную (обычно дешевле) позицию
@@ -967,6 +1238,12 @@ fetch("data/shop.json?v=" + Math.floor(Date.now() / 60000), { cache: "no-store" 
   $("date").textContent = fmt(today, true) + " · " + shop.length + " " + plural(shop.length, "предмет", "предмета", "предметов");
   startTimer();
   chips(); render();
+  splash.set(65); splash.lbl("Загружаем картинки…");
+  // картинки первого экрана + карточки заставки: ждём их, чтобы магазин открылся уже заполненным
+  const first = [...$("list").querySelectorAll(".it img")].slice(0, 8);
+  first.forEach(im => { im.loading = "eager"; });
+  const all = cardImgs.concat(first); let k = 0;
+  await waitImgs(all, () => splash.set(65 + 35 * (++k / all.length)), 6000);
   setTimeout(loadCatalog, 1500);   // каталог подгружаем заранее, чтобы вкладка открывалась сразу
   splash.done();
 }).catch(() => {
