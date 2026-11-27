@@ -428,7 +428,8 @@ details.more .desc{margin:0 0 6px}
 /* значки типов */
 .ti{width:16px;height:16px;flex:none;stroke:none;filter:drop-shadow(0 1px 1px #0006)}
 .sec i svg.tf{fill:var(--sc);stroke:none;width:20px;height:20px}
-.tag .ti{width:13px;height:13px;margin:-2px 4px -2px -1px;vertical-align:-2px}
+.tag .ti{width:13px;height:13px;margin:-2px 4px -2px -1px;vertical-align:-1px}
+.fo .ti{transform:translateY(-.8px)}
 /* редкости и серии — фишки в цветах игры */
 .fo.col{border:0;color:#fff;text-shadow:0 1px 2px #0009;background:linear-gradient(135deg,var(--a) 0%,var(--z) 100%);box-shadow:inset 0 0 0 1px #ffffff2e,inset 0 1px 0 #ffffff40;position:relative;overflow:hidden}
 .fo.col::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 85% -10%,#ffffff40,transparent 55%),repeating-linear-gradient(135deg,#ffffff0d 0 6px,transparent 6px 14px);pointer-events:none}
@@ -548,7 +549,7 @@ try {
 const inTg = !!(tg && (INIT || (tg.platform && tg.platform !== "unknown")));
 const canSync = !!INIT;
 // ---------- самообновление: телега любит держать старую версию страницы в кэше
-const BUILD = "2026-11-27f";
+const BUILD = "2026-11-27g";
 fetch("index.html?nocache=" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(t => {
   const m = t.match(/const BUILD = "([^"]+)"/);
   if (m && m[1] !== BUILD) {
@@ -773,7 +774,7 @@ pickaxe:'<path d="M4.4 6.1C8.6 2.3 15.4 2.2 19.7 6a.9.9 0 0 1-.9 1.5C16.6 6.6 14
 glider:'<path d="M12 4.2c-3.8 0-7.4 2.5-9.4 6.2a.8.8 0 0 0 1 1.1l3.6-1.4 2.7 4.3V19a1 1 0 0 0 1 1h2.2a1 1 0 0 0 1-1v-4.6l2.7-4.3 3.6 1.4a.8.8 0 0 0 1-1.1C19.4 6.7 15.8 4.2 12 4.2zm0 2.4 2.2 3.6L12 13.6l-2.2-3.4z"/>',
 backpack:'<path d="M9.3 2.5h5.4a1 1 0 0 1 1 1v1.1A5.6 5.6 0 0 1 18.6 9.8V19.6a1.9 1.9 0 0 1-1.9 1.9H7.3a1.9 1.9 0 0 1-1.9-1.9V9.8a5.6 5.6 0 0 1 2.9-5.2V3.5a1 1 0 0 1 1-1zm1 1.6v.1a5.4 5.4 0 0 1 3.4 0v-.1zM9 13.2a.9.9 0 0 0-.9.9v3.2a.9.9 0 0 0 .9.9h6a.9.9 0 0 0 .9-.9v-3.2a.9.9 0 0 0-.9-.9z"/>',
 wrap:'<rect x="3" y="3.4" width="14.2" height="6" rx="1.6"/><path d="M18.2 5.2h1.3a1.3 1.3 0 0 1 1.3 1.3v4.3a1.3 1.3 0 0 1-1.3 1.3h-6.8v2h.4a1 1 0 0 1 1 1v5.6a1 1 0 0 1-1 1h-2.6a1 1 0 0 1-1-1v-5.6a1 1 0 0 1 1-1h.4v-2.7a1.3 1.3 0 0 1 1.3-1.3h6.5V7.2h-.5z"/>',
-shoe:'<path d="M3.6 7.6h3.2l1.6 2.3 2.5-1 3.3 2.7 4.2 1.2a3.2 3.2 0 0 1 2.4 3.1v.6H2.6V8.6a1 1 0 0 1 1-1zM2.6 17.4h18.6v1.4a1 1 0 0 1-1 1H3.6a1 1 0 0 1-1-1z"/>',
+shoe:'<path transform="translate(0 -1.7)" d="M3.6 7.6h3.2l1.6 2.3 2.5-1 3.3 2.7 4.2 1.2a3.2 3.2 0 0 1 2.4 3.1v.6H2.6V8.6a1 1 0 0 1 1-1zM2.6 17.4h18.6v1.4a1 1 0 0 1-1 1H3.6a1 1 0 0 1-1-1z"/>',
 contrail:'<path d="M17.8 2.2l1.2 3.1 3.1 1.2-3.1 1.2-1.2 3.1-1.2-3.1-3.1-1.2 3.1-1.2z"/><path d="M13.2 9.6a1.1 1.1 0 0 1 1.9 1c-1.8 4.6-5.6 8-10.6 9.3a1.1 1.1 0 1 1-.55-2.1c4.3-1.1 7.6-4.1 9.25-8.2z" /><path d="M9.4 9.3a1.05 1.05 0 0 1 1.8 1.1c-1.6 3-4.2 5.1-7.4 6a1.05 1.05 0 0 1-.55-2c2.6-.75 4.8-2.5 6.15-5.1z" opacity=".55"/>',
 music:'<path d="M20.2 3.3v12.4a3.3 3.3 0 1 1-2-3V7.6l-8.4 1.8v8.4a3.3 3.3 0 1 1-2-3V5.8a1 1 0 0 1 .8-1l10.4-2.3a1 1 0 0 1 1.2 1z"/>',
 loadingscreen:'<path d="M4 3.6h16a1.6 1.6 0 0 1 1.6 1.6v13.6a1.6 1.6 0 0 1-1.6 1.6H4a1.6 1.6 0 0 1-1.6-1.6V5.2A1.6 1.6 0 0 1 4 3.6zm.4 12.6v2.2h15.2v-1.3l-4.5-4.4-2.3 2.1-3.4-3.3zM15.7 6.8a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8z" fill-rule="evenodd"/>',
