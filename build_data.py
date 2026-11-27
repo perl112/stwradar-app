@@ -74,8 +74,22 @@ RARITY = {
 }
 
 
+SERIES = {}   # «название серии» -> [основной цвет, тёмный цвет] — для фильтров в миниаппе
+
+
+def note_series(obj: dict) -> None:
+    """запоминаем цвета серии как в игре: 2-й цвет — основной фон плашки, 4-й — тёмный низ"""
+    ser = obj.get("series") or {}
+    cols = [c for c in (ser.get("colors") or []) if isinstance(c, str) and len(c) >= 6]
+    if ser.get("value") and cols and ser["value"] not in SERIES:
+        a = cols[1] if len(cols) > 1 else cols[0]
+        z = cols[3] if len(cols) > 3 else cols[-1]
+        SERIES[ser["value"]] = ["#" + a[:6].lower(), "#" + z[:6].lower()]
+
+
 def rarity_colors(obj: dict) -> tuple[str, str, str]:
     """цвета карточки по редкости или серии (Marvel, Icon, DC...): фон сверху, фон снизу, рамка"""
+    note_series(obj)
     ser = obj.get("series") or {}
     cols = [c for c in (ser.get("colors") or []) if isinstance(c, str) and len(c) >= 6]
     if cols:
@@ -661,7 +675,7 @@ def main() -> None:
         print(f"⚠ fortnite-api не отдал магазин ({e}) — оставляю тот, что сейчас на сайте; следующий запуск попробует снова")
         API_DOWN["v"] = True
         shop = live_json("shop.json")
-        keep_live_images(shop["items"])
+        keep_live_images(shop["items"], ("img", "alt", "th", "tha"))
         keep_live_images([p for it in shop["items"] for p in it.get("parts") or []], ("img",))
     (OUT / "shop.json").write_text(json.dumps(shop, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"магазин: {len(shop['items'])} предметов за {shop['date']}")
@@ -673,6 +687,14 @@ def main() -> None:
         cat = live_json("catalog.json")
     (OUT / "catalog.json").write_text(json.dumps(cat, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"каталог: {len(cat)} предметов")
+    if SERIES:
+        (OUT / "series.json").write_text(json.dumps(SERIES, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        print(f"серий с цветами: {len(SERIES)}")
+    else:
+        try:
+            (OUT / "series.json").write_text(json.dumps(live_json("series.json"), ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
     build_packs(cat)
     vids = build_videos(shop, cat)
     (OUT / "videos.json").write_text(json.dumps(vids, separators=(",", ":")), encoding="utf-8")

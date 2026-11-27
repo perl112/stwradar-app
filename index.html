@@ -415,6 +415,34 @@ details.more .desc{margin:0 0 6px}
 /* экран загрузки: карточки появляются, когда картинка уже загружена */
 .spcard img{opacity:0;transition:opacity .35s}.spcard img.ok{opacity:1}
 .spcard.sk{background:linear-gradient(100deg,#ffffff08 30%,#ffffff14 50%,#ffffff08 70%) 0 0/200% 100%;animation:sh 1.2s infinite}
+
+/* таймер: одна строка, часы и полоска прогресса до нового магазина */
+.timer{position:relative;overflow:hidden;white-space:nowrap;gap:7px;padding:6px 11px 7px 9px;border-radius:11px;background:linear-gradient(180deg,#ffffff12,#ffffff07);max-width:100%}
+.timer>svg{width:15px;height:15px;flex:none;fill:none;stroke:#8cd7ff;stroke-width:2;stroke-linecap:round}
+.timer span{overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;letter-spacing:.05em;font-size:11px;font-weight:800}
+.timer::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:var(--p,0%);background:linear-gradient(90deg,#4aa8ff,#8cd7ff);border-radius:2px;transition:width 1s linear}
+.timer.soon>svg{stroke:#ffb347}.timer.soon b{color:#ffb347}.timer.soon::after{background:linear-gradient(90deg,#ff8a3d,#ffcf5a)}
+.timer.upd>svg{animation:spin 1.6s linear infinite}.timer.upd::after{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (max-width:360px){.timer span{display:none}}
+/* значки типов */
+.ti{width:16px;height:16px;flex:none;stroke:none;filter:drop-shadow(0 1px 1px #0006)}
+.sec i svg.tf{fill:var(--sc);stroke:none;width:20px;height:20px}
+.tag .ti{width:13px;height:13px;margin:-2px 4px -2px -1px;vertical-align:-2px}
+/* редкости и серии — фишки в цветах игры */
+.fo.col{border:0;color:#fff;text-shadow:0 1px 2px #0009;background:linear-gradient(135deg,var(--a) 0%,var(--z) 100%);box-shadow:inset 0 0 0 1px #ffffff2e,inset 0 1px 0 #ffffff40;position:relative;overflow:hidden}
+.fo.col::before{content:"";position:absolute;inset:0;background:radial-gradient(120% 90% at 85% -10%,#ffffff40,transparent 55%),repeating-linear-gradient(135deg,#ffffff0d 0 6px,transparent 6px 14px);pointer-events:none}
+.fo.col small{color:#ffffffc8;position:relative}.fo.col>*{position:relative}
+.fo.col.on{box-shadow:0 0 0 2px #fff,0 0 14px var(--a)}
+.fo.col:not(.on){filter:saturate(.85) brightness(.88)}
+.fmore{border-style:dashed}
+
+/* состав набора и коллекция — одной лентой с прокруткой вбок */
+.parts.row{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;margin:0 -18px;padding:2px 18px 10px;scroll-snap-type:x proximity;scrollbar-width:none;overscroll-behavior-x:contain}
+.parts.row::-webkit-scrollbar{display:none}
+.parts.row .part{flex:0 0 78px;scroll-snap-align:start;font-size:11px}
+.parts.row .part img{border-radius:12px;background:radial-gradient(90% 90% at 50% 20%,var(--c1,#ffffff14),var(--c2,#ffffff08));border:1px solid #ffffff1a}
+@media(hover:hover){.parts.row{scrollbar-width:thin;scrollbar-color:#ffffff30 transparent}.parts.row::-webkit-scrollbar{display:block;height:6px}.parts.row::-webkit-scrollbar-thumb{background:#ffffff30;border-radius:3px}}
 </style>
 </head>
 <body>
@@ -426,7 +454,7 @@ details.more .desc{margin:0 0 6px}
 <div class="wrap">
 <header>
   <div class="logo" aria-hidden="true"><svg viewBox="0 0 20 28"><path d="M13 0 1 16h7l-3 12L19 10h-7z" fill="#fff"/></svg></div>
-  <div><div class="brand">Storm Radar</div><h1 id="title">Магазин Fortnite</h1><div class="sub" id="date">загружаю…</div><div class="timer" id="timer" hidden><i></i><span>новый магазин через</span><b id="tleft">--:--:--</b></div></div>
+  <div><div class="brand">Storm Radar</div><h1 id="title">Магазин Fortnite</h1><div class="sub" id="date">загружаю…</div><div class="timer" id="timer" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span>новый магазин через</span><b id="tleft">--:--:--</b></div></div>
   <button class="fs" id="fs" hidden aria-label="На весь экран"><svg viewBox="0 0 24 24" class="fs-on"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><svg viewBox="0 0 24 24" class="fs-off"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
 </header>
 <nav class="tabs">
@@ -520,7 +548,7 @@ try {
 const inTg = !!(tg && (INIT || (tg.platform && tg.platform !== "unknown")));
 const canSync = !!INIT;
 // ---------- самообновление: телега любит держать старую версию страницы в кэше
-const BUILD = "2026-11-27a";
+const BUILD = "2026-11-27f";
 fetch("index.html?nocache=" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(t => {
   const m = t.match(/const BUILD = "([^"]+)"/);
   if (m && m[1] !== BUILD) {
@@ -672,6 +700,8 @@ function askWrite() {
 // ---------- предметы
 const fromCat = c => ({ id: c.id, keys: [c.id], name: c.n, kind: c.k, typeName: c.t, rarity: c.r, set: c.s, desc: c.d,
   img: c.b || c.i, thumb: c.i, src: c.o || [], intro: c.in || "", lastSeen: c.h, times: c.c, firstSeen: c.f, c1: c.c1 || "#22456a", c2: c.c2 || "#11243b", rb: c.c1 });
+let catIdx = null;
+const catById = id => { if (!catalog || !id) return null; if (!catIdx) { catIdx = new Map(); catalog.forEach(c => catIdx.set(c.id.toLowerCase(), c)); } return catIdx.get(String(id).toLowerCase()) || null; };
 const fromShop = it => ({ ...it, thumb: it.th || it.img });   // в сетке — лёгкая картинка, в карточке — крупная
 
 function badge(it, mode) {
@@ -710,9 +740,55 @@ const SEC_ICO = { bundle: "🎁", outfit: "🧍", emote: "💃", pickaxe: "⛏�
 const match = (txt, q) => String(txt || "").toLowerCase().includes(q);
 const RARS = [["Обычный","#9a9a9a"],["Необычный","#69bb1e"],["Редкий","#3dc8f8"],["Эпический","#c359ff"],["Легендарный","#ea8d23"],["Мифический","#ffd84a"],["Экзотический","#76d6e3"],["Трансцендентный","#ff4f7d"]];
 const RARSET = new Set(RARS.map(r => r[0]));
-const F_KINDS = [["outfit","Скины"],["emote","Эмоции"],["pickaxe","Кирки"],["glider","Дельтапланы"],["backpack","Рюкзаки"],["wrap","Обёртки"],["shoe","Кроссовки"],["contrail","Следы"],["music","Музыка"],["other","Остальное"]];
+const RARG = { "Обычный": ["#9a9a9a","#4c4c4c"], "Необычный": ["#69bb1e","#1c5a12"], "Редкий": ["#3dc8f8","#135296"], "Эпический": ["#c359ff","#4a1f86"],
+  "Легендарный": ["#ea8d23","#7a3416"], "Мифический": ["#ffd84a","#9c7420"], "Экзотический": ["#76d6e3","#2f7b86"], "Трансцендентный": ["#ff4f7d","#7a1534"] };
+const hexOk = h => typeof h === "string" && /^#[0-9a-f]{6}$/i.test(h);
+const dim = h => { const n = parseInt(h.slice(1), 16); const f = c => Math.round(c * 0.42).toString(16).padStart(2, "0"); return "#" + f(n >> 16) + f((n >> 8) & 255) + f(n & 255); };
+// цвета серии берём из самих данных игры (каталог знает оба цвета серии, магазин — основной)
+// по каждой серии берём самый частый цвет среди её предметов (одиночный «неправильный» предмет не перекрасит серию)
+function serColors() {
+  const votes = {};
+  const vote = (r, a, z, w) => { if (!r || RARSET.has(r) || !hexOk(a)) return; const k = a.toLowerCase() + (hexOk(z) ? z.toLowerCase() : dim(a));
+    const v = votes[r] = votes[r] || {}; v[k] = (v[k] || 0) + w; };
+  (catalog || []).forEach(c => vote(c.r, c.c1, c.c2, 1));
+  shop.forEach(i => vote(i.rarity, i.rb, dim(i.rb || "#000000"), 0.5));
+  const m = {};
+  // точные цвета серий из игры (сборка кладёт их в data/series.json) — главнее всего остального
+  for (const r in (SERJ || {})) if (hexOk(SERJ[r][0]) && hexOk(SERJ[r][1])) { m[r] = SERJ[r]; delete votes[r]; }
+  for (const r in votes) { const best = Object.entries(votes[r]).sort((a, b) => b[1] - a[1])[0][0]; m[r] = [best.slice(0, 7), best.slice(7, 14)]; }
+  return m;
+}
+// светлые серии (ледяная, «звёздные войны»…) чуть притемняем, чтобы белый текст читался
+const tone = h => { const n = parseInt(h.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; const L = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  if (L < 0.6) return h; const f = c => Math.round(c * 0.7).toString(16).padStart(2, "0"); return "#" + f(r) + f(g) + f(b); };
+let SERJ = null;
+fetch("data/series.json?v=" + Math.floor(Date.now() / 3600000), { cache: "no-cache" }).then(r => r.ok ? r.json() : null).then(j => { SERJ = j; }).catch(() => {});
+const fOpen = new Set();   // какие длинные группы раскрыты
+const F_KINDS = [["outfit","Скины"],["emote","Эмоции"],["pickaxe","Кирки"],["glider","Дельтапланы"],["backpack","Рюкзаки"],["wrap","Обёртки"],["shoe","Кроссовки"],["contrail","Следы"],["music","Музыка"],["loadingscreen","Экраны загрузки"],["other","Остальное"]];
+// свои значки типов: залитые, «плотные» — читаются даже в 14–16 px
+const TICO = {
+outfit:'<path d="M8.6 2.8 3.2 5.6a1 1 0 0 0-.45 1.3l1.9 4a1 1 0 0 0 1.25.5L7 10.9V20a1.2 1.2 0 0 0 1.2 1.2h7.6A1.2 1.2 0 0 0 17 20v-9.1l1.1.5a1 1 0 0 0 1.25-.5l1.9-4a1 1 0 0 0-.45-1.3L15.4 2.8a.9.9 0 0 0-1.2.45C13.8 4.3 13 5 12 5s-1.8-.7-2.2-1.75a.9.9 0 0 0-1.2-.45z"/>',
+emote:'<circle cx="14.2" cy="3.9" r="2.3"/><path d="M12.6 7.2a1.4 1.4 0 0 1 1.9-.3l3.4 2.4 1.9-1.8a1.2 1.2 0 0 1 1.7 1.7l-2.6 2.5a1.3 1.3 0 0 1-1.7.1l-1.6-1.1-1.5 2.6 2.6 1.6a1.4 1.4 0 0 1 .6 1.4l-1 5.1a1.3 1.3 0 0 1-2.6-.5l.8-4.2-3.2-2-1.3 2.2-3.6.5a1.25 1.25 0 0 1-.35-2.5l3-.4z"/>',
+pickaxe:'<path d="M4.4 6.1C8.6 2.3 15.4 2.2 19.7 6a.9.9 0 0 1-.9 1.5C16.6 6.6 14.7 6.4 13.4 6.6L5.9 21.1a1.3 1.3 0 0 1-2.3-1.2l7.3-14C9.2 5.5 7.4 6 5.6 7.4a.85.85 0 0 1-1.2-1.3z"/><path d="M15.5 8.3l3 2.4a1 1 0 0 1-1.25 1.6l-3-2.4z"/>',
+glider:'<path d="M12 4.2c-3.8 0-7.4 2.5-9.4 6.2a.8.8 0 0 0 1 1.1l3.6-1.4 2.7 4.3V19a1 1 0 0 0 1 1h2.2a1 1 0 0 0 1-1v-4.6l2.7-4.3 3.6 1.4a.8.8 0 0 0 1-1.1C19.4 6.7 15.8 4.2 12 4.2zm0 2.4 2.2 3.6L12 13.6l-2.2-3.4z"/>',
+backpack:'<path d="M9.3 2.5h5.4a1 1 0 0 1 1 1v1.1A5.6 5.6 0 0 1 18.6 9.8V19.6a1.9 1.9 0 0 1-1.9 1.9H7.3a1.9 1.9 0 0 1-1.9-1.9V9.8a5.6 5.6 0 0 1 2.9-5.2V3.5a1 1 0 0 1 1-1zm1 1.6v.1a5.4 5.4 0 0 1 3.4 0v-.1zM9 13.2a.9.9 0 0 0-.9.9v3.2a.9.9 0 0 0 .9.9h6a.9.9 0 0 0 .9-.9v-3.2a.9.9 0 0 0-.9-.9z"/>',
+wrap:'<rect x="3" y="3.4" width="14.2" height="6" rx="1.6"/><path d="M18.2 5.2h1.3a1.3 1.3 0 0 1 1.3 1.3v4.3a1.3 1.3 0 0 1-1.3 1.3h-6.8v2h.4a1 1 0 0 1 1 1v5.6a1 1 0 0 1-1 1h-2.6a1 1 0 0 1-1-1v-5.6a1 1 0 0 1 1-1h.4v-2.7a1.3 1.3 0 0 1 1.3-1.3h6.5V7.2h-.5z"/>',
+shoe:'<path d="M3.6 7.6h3.2l1.6 2.3 2.5-1 3.3 2.7 4.2 1.2a3.2 3.2 0 0 1 2.4 3.1v.6H2.6V8.6a1 1 0 0 1 1-1zM2.6 17.4h18.6v1.4a1 1 0 0 1-1 1H3.6a1 1 0 0 1-1-1z"/>',
+contrail:'<path d="M17.8 2.2l1.2 3.1 3.1 1.2-3.1 1.2-1.2 3.1-1.2-3.1-3.1-1.2 3.1-1.2z"/><path d="M13.2 9.6a1.1 1.1 0 0 1 1.9 1c-1.8 4.6-5.6 8-10.6 9.3a1.1 1.1 0 1 1-.55-2.1c4.3-1.1 7.6-4.1 9.25-8.2z" /><path d="M9.4 9.3a1.05 1.05 0 0 1 1.8 1.1c-1.6 3-4.2 5.1-7.4 6a1.05 1.05 0 0 1-.55-2c2.6-.75 4.8-2.5 6.15-5.1z" opacity=".55"/>',
+music:'<path d="M20.2 3.3v12.4a3.3 3.3 0 1 1-2-3V7.6l-8.4 1.8v8.4a3.3 3.3 0 1 1-2-3V5.8a1 1 0 0 1 .8-1l10.4-2.3a1 1 0 0 1 1.2 1z"/>',
+loadingscreen:'<path d="M4 3.6h16a1.6 1.6 0 0 1 1.6 1.6v13.6a1.6 1.6 0 0 1-1.6 1.6H4a1.6 1.6 0 0 1-1.6-1.6V5.2A1.6 1.6 0 0 1 4 3.6zm.4 12.6v2.2h15.2v-1.3l-4.5-4.4-2.3 2.1-3.4-3.3zM15.7 6.8a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8z" fill-rule="evenodd"/>',
+bundle:'<path d="M3.6 8.4h16.8a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3.6a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1zM4.4 14.4h6.6v7H5.4a1 1 0 0 1-1-1zM13 14.4h6.6v6a1 1 0 0 1-1 1H13zM11 8.4C7.8 8.2 6 6.6 6.6 4.9c.7-2 3.6-1.3 5.4 2.7 1.8-4 4.7-4.7 5.4-2.7.6 1.7-1.2 3.3-4.4 3.5z"/>',
+other:'<circle cx="5.5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="18.5" cy="12" r="2.2"/>',
+};
+const TCOL = {outfit:"#8cd7ff",emote:"#c59bff",pickaxe:"#ffb37a",glider:"#9be7ff",backpack:"#ffd88c",wrap:"#ff8fa3",shoe:"#b6f09c",contrail:"#a7b8ff",music:"#e59bff",loadingscreen:"#7ce3c8",bundle:"#ff9bd1",other:"#b3c8dc"};
+const tIco = k => '<svg class="ti" viewBox="0 0 24 24" aria-hidden="true" style="fill:' + (TCOL[k] || TCOL.other) + '">' + (TICO[k] || TICO.other) + '</svg>';
+// те же значки — в заголовках разделов магазина (кроме «остальное»: там коробка нагляднее точек)
+for (const k in TICO) if (SECI[k] && k !== "other") SECI[k][0] = '<svg class="tf" viewBox="0 0 24 24">' + TICO[k] + '</svg>';
+// всё, чего нет в списке типов (экраны загрузки, граффити, эмодзи, питомцы…), считаем «остальным» — иначе такие предметы не находились фильтром
+const KN = new Set(["bundle", ...F_KINDS.map(k => k[0])]);
+const kindN = k => KN.has(k) ? k : "other";
 const PRICES = [["p1","до 500",p => p <= 500],["p2","500–1000",p => p > 500 && p <= 1000],["p3","1000–1500",p => p > 1000 && p <= 1500],["p4","больше 1500",p => p > 1500]];
-const SORTS = { shop: [["game","как в игре"],["cheap","сначала дешевле"],["dear","сначала дороже"],["long","дольше всего не было"],["az","по алфавиту"]],
+const SORTS = { shop: [["game","по разделам"],["cheap","сначала дешевле"],["dear","сначала дороже"],["long","дольше всего не было"],["az","по алфавиту"]],
                 all: [["game","недавние"],["long","дольше всего не было"],["az","по алфавиту"]] };
 const F0 = () => ({ kind: new Set(), rar: new Set(), ser: new Set(), st: new Set(), pr: new Set(), sort: "game" });
 let flt = F0();
@@ -723,12 +799,12 @@ function fxOf(it) {
   if (it.k !== undefined) {   // из каталога
     const s = ownShop.get(it.id) || inShop.get(it.id);
     const ls = it.h ? Math.round((today - dayOf(it.h)) / DAY) : null;
-    return { kind: it.k, r: it.r || "", nm: it.n, price: s ? s.price : null, absent: s ? 0 : ls, inshop: !!s, never: !it.h, isNew: false, back: false, out: null };
+    return { kind: kindN(it.k), r: it.r || "", nm: it.n, price: s ? s.price : null, absent: s ? 0 : ls, inshop: !!s, never: !it.h, isNew: false, back: false, out: null };
   }
-  return { kind: it.kind, r: it.rarity || "", nm: it.name, price: it.price, absent: it.days || 0, inshop: true, never: false, isNew: !!it.isNew, back: !!it.returned, out: it.out ? Date.parse(it.out) : null };
+  return { kind: kindN(it.kind), r: it.rarity || "", nm: it.name, price: it.price, absent: it.days || 0, inshop: true, never: false, isNew: !!it.isNew, back: !!it.returned, out: it.out ? Date.parse(it.out) : null };
 }
 const ST_SHOP = [["new","Новинки",x => x.isNew],["back","Вернулись",x => x.back],["d100","Не было 100+ дней",x => x.absent >= 100],["d365","Не было 365+ дней",x => x.absent >= 365],["out","Уходит сегодня",x => x.out && x.out <= endOfToday()]];
-const ST_ALL = [["now","Сейчас в магазине",x => x.inshop],["d365","Не было 365+ дней",x => x.absent != null && x.absent >= 365],["never","Не продавался",x => x.never]];
+const ST_ALL = [];   // в каталоге «статус» не нужен
 const stList = () => view === "all" ? ST_ALL : ST_SHOP;
 // проходит ли предмет фильтры (skip — какую группу не учитывать: так считаем числа в панели)
 function passF(x, skip) {
@@ -772,26 +848,35 @@ function chips() {
   flt.rar.forEach(k => names.push(k)); flt.ser.forEach(k => names.push(k));
   flt.st.forEach(k => names.push(lab(stList(), k))); flt.pr.forEach(k => names.push(lab(PRICES, k)));
   if (flt.sort !== "game") names.push(lab(SORTS[view === "all" ? "all" : "shop"], flt.sort));
-  $("fsum").textContent = names.length ? names.join(" · ") : (view === "all" ? "тип, редкость, серии" : "тип, редкость, цена, сортировка");
+  $("fsum").textContent = names.length ? names.join(" · ") : (view === "all" ? "тип, редкость, серии" : "тип, редкость, серии, сортировка");
 }
 function fSource() { return view === "all" ? (catalog || []) : shop; }
 function openFilters() {
   try { $("q").blur(); } catch (e) {}
   const src = fSource().map(fxOf);
   const cnt = (grp, test) => src.reduce((n, x) => n + (passF(x, grp) && test(x) ? 1 : 0), 0);
-  const opt = (grp, k, label, n, on, color) => (n || on) ? '<button class="fo' + (on ? " on" : "") + '" data-g="' + grp + '" data-k="' + esc(k) + '"' + (color ? ' style="--rc:' + color + '"' : "") + '>' + (color ? "<i></i>" : "") + esc(label) + ' <small>' + n + '</small></button>' : "";
-  const group = (title, html) => html.trim() ? '<div class="fg"><div>' + title + '</div><div class="fos">' + html + '</div></div>' : "";
+  const opt = (grp, k, label, n, on, o) => (n || on) ? '<button class="fo' + (on ? " on" : "") + (o && o.col ? " col" : "") + '" data-g="' + grp + '" data-k="' + esc(k) + '"' +
+    (o && o.col ? ' style="--a:' + tone(o.col[0]) + ';--z:' + o.col[1] + '"' : "") + '>' + (o && o.ico ? tIco(o.ico) : "") + '<span>' + esc(label) + '</span> <small>' + n + '</small></button>' : "";
+  // длинные группы показываем свёрнутыми: первые 12 и кнопка «ещё N»
+  const group = (title, html, id) => {
+    const parts = html.match(/<button[\s\S]*?<\/button>/g) || [];
+    if (!parts.length) return "";
+    const LIM = 12, open = fOpen.has(id) || parts.length <= LIM + 2;
+    const shown = open ? parts : parts.slice(0, LIM).concat(parts.slice(LIM).filter(p => p.includes(' on"') || p.includes(' on ')));
+    return '<div class="fg"><div>' + title + '</div><div class="fos">' + shown.join("") +
+      (open ? "" : '<button class="fo fmore" data-more="' + id + '">ещё ' + (parts.length - shown.length) + '</button>') + '</div></div>';
+  };
+  const SC = serColors();
   const kinds = (view === "all" ? [] : [["bundle","Наборы"]]).concat(F_KINDS);
   const sers = [...new Set(src.map(x => x.r).filter(r => r && !RARSET.has(r)))].sort((a, b) => a.localeCompare(b, "ru"));
   const sorts = SORTS[view === "all" ? "all" : "shop"];
   const total = src.filter(x => passF(x)).length;
   $("fpane").innerHTML = '<div class="fbody"><div class="grab"></div><h3>Фильтры</h3>' +
-    group("Сортировка", sorts.map(([k, t]) => '<button class="fo' + (flt.sort === k ? " on" : "") + '" data-g="sort" data-k="' + k + '">' + t + '</button>').join("")) +
-    group("Тип", kinds.map(([k, t]) => opt("kind", k, t, cnt("kind", x => x.kind === k), flt.kind.has(k))).join("")) +
-    group("Редкость", RARS.map(([k, c]) => opt("rar", k, k, cnt("rar", x => x.r === k), flt.rar.has(k), c)).join("")) +
-    group("Серии", sers.map(k => opt("ser", k, k, cnt("ser", x => x.r === k), flt.ser.has(k))).join("")) +
-    group(view === "all" ? "Статус" : "В магазине", stList().map(([k, t, f]) => opt("st", k, t, cnt("st", f), flt.st.has(k))).join("")) +
-    (view === "all" ? "" : group("Цена", PRICES.map(([k, t, f]) => opt("pr", k, t, cnt("pr", x => x.price != null && f(x.price)), flt.pr.has(k))).join(""))) +
+    group("Сортировка", sorts.map(([k, t]) => '<button class="fo' + (flt.sort === k ? " on" : "") + '" data-g="sort" data-k="' + k + '">' + t + '</button>').join(""), "sort") +
+    group("Тип", kinds.map(([k, t]) => opt("kind", k, t, cnt("kind", x => x.kind === k), flt.kind.has(k), { ico: k })).join(""), "kind") +
+    group("Редкость", RARS.map(([k]) => opt("rar", k, k, cnt("rar", x => x.r === k), flt.rar.has(k), { col: RARG[k] })).join(""), "rar") +
+    group("Серии", sers.map(k => opt("ser", k, k, cnt("ser", x => x.r === k), flt.ser.has(k), { col: SC[k] || ["#4a7aa8", "#1b324d"] })).join(""), "ser") +
+    group("В магазине", stList().map(([k, t, f]) => opt("st", k, t, cnt("st", f), flt.st.has(k))).join(""), "st") +
     '</div><div class="ffoot"><button class="btn s" id="fclr">Сбросить</button><button class="btn p" id="fok">' + (total ? "Показать " + total : "Ничего не найдено") + '</button></div>';
   if (!$("fsheet").classList.contains("on")) {
     $("fsheet").classList.add("on"); $("fsheet").setAttribute("aria-hidden", "false");
@@ -808,6 +893,8 @@ $("fbtn").onclick = () => { haptic("sel"); openFilters(); };
 $("freset").onclick = () => { flt = F0(); haptic("sel"); applyF(); window.scrollTo({ top: 0 }); };
 $("fshade").onclick = closeFilters;
 $("fpane").addEventListener("click", e => {
+  const mo = e.target.closest(".fmore");
+  if (mo) { fOpen.add(mo.dataset.more); const st = $("fpane").querySelector(".fbody").scrollTop; openFilters(); $("fpane").querySelector(".fbody").scrollTop = st; return; }
   const b = e.target.closest(".fo");
   if (b) {
     const g = b.dataset.g, k = b.dataset.k;
@@ -870,7 +957,7 @@ function render() {
       l.filter(i => !used.has(i)).slice().sort((a, b) => a.order - b.order).forEach(i => { const n = i.sec || ""; let g = secs.find(x => x.n === n); if (!g) secs.push(g = { n, a: [] }); g.a.push(i); });
       secs.filter(g => g.n).forEach(g => add2('<b class="shs">' + esc(g.n) + '</b>', g.a));
       const rest = (secs.find(g => !g.n) || { a: [] }).a;
-      for (const [k, t] of KINDS) add2(t, rest.filter(i => i.kind === k && !used.has(i)), SECI[k] ? k : "other");
+      for (const [k, t] of KINDS) add2(t, rest.filter(i => (KINDS.some(z => z[0] === i.kind) ? i.kind : "other") === k && !used.has(i)), SECI[k] ? k : "other");
       list.innerHTML = parts.join("");
     } else list.innerHTML = l.length ? grid(l, "shop") : "";
     current = l;
@@ -993,8 +1080,12 @@ function loadExtras(it, key) {
     if (my !== vidToken || !$("ext")) return;
     let html = "";
     if (it.set && catalog) {
-      const same = catalog.filter(c => c.s === it.set && c.id.toLowerCase() !== key.toLowerCase()).slice(0, 12);
-      if (same.length) html += '<div class="lbl">' + esc(it.set.replace(/\.$/, "")) + '</div><div class="parts">' +
+      // без самого предмета и без того, что уже показано в составе набора
+      const skip = new Set([key, ...(it.keys || []), ...((it.parts || []).map(p => p.id))].filter(Boolean).map(x => String(x).toLowerCase()));
+      const same = catalog.filter(c => c.s === it.set && !skip.has(c.id.toLowerCase())).slice(0, 24);
+      const nm = (it.set.match(/«([^»]+)»/) || [])[1];
+      const title = it.parts && it.parts.length ? "Ещё из коллекции" + (nm ? " «" + nm + "»" : "") + " · " + same.length : it.set.replace(/\.$/, "");
+      if (same.length) html += '<div class="lbl">' + esc(title) + '</div><div class="parts row">' +
         same.map(c => '<button class="part" data-id="' + esc(c.id) + '" style="--c1:' + c.c1 + ';--c2:' + c.c2 + '"><img loading="lazy" src="' + esc(c.i) + '" alt=""><div>' + esc(c.n) + '</div></button>').join("") + '</div>';
     }
     const inPacks = (packs || []).filter(p => packItems(p).some(x => (x.id || "").toLowerCase() === key.toLowerCase()));
@@ -1021,6 +1112,7 @@ function startTimer() {
     const left = Math.max(0, Math.floor((next - now) / 1000));
     out.textContent = p2(Math.floor(left / 3600)) + ":" + p2(Math.floor(left / 60) % 60) + ":" + p2(left % 60);
     box.classList.toggle("soon", left < 3600);
+    box.style.setProperty("--p", (100 - left / 864).toFixed(2) + "%");   // сколько прошло от текущего магазина
     // в игре магазин уже сменился, а у нас ещё вчерашний (сборка идёт минут 10–20 после обновления)
     const stale = today < Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
     box.classList.toggle("upd", stale);
@@ -1048,7 +1140,7 @@ function openItem(it) {
   if (it.firstSeen || (s && s.firstSeen)) rows.push([IC.star, "Впервые в магазине", fmt(dayOf(it.firstSeen || s.firstSeen), true)]);
   if (it.intro) rows.push([IC.gem, "Появился в игре", it.intro]);
   const srcs = (it.src && it.src.length ? it.src : (times ? ["Магазин"] : []));
-  const tags = [it.rarity ? '<span class="tag rar">' + esc(it.rarity) + '</span>' : "", it.typeName ? '<span class="tag">' + esc(it.typeName) + '</span>' : "", it.set ? '<button class="tag tg-l" id="settag">' + esc(it.set) + ' ›</button>' : ""].join("");
+  const tags = [it.rarity ? '<span class="tag rar">' + esc(it.rarity) + '</span>' : "", it.typeName ? '<span class="tag">' + tIco(kindN(it.kind)) + esc(it.typeName) + '</span>' : "", it.set ? '<button class="tag tg-l" id="settag">' + esc(it.set) + ' ›</button>' : ""].join("");
   // главное одной строкой: цена и до какого числа — или когда был в последний раз
   const absent = last ? Math.round((today - dayOf(last)) / DAY) : null;
   const pst = s
@@ -1065,7 +1157,8 @@ function openItem(it) {
     '<div class="pb" style="--b:' + rb + '"><h2>' + esc(it.name) + '</h2><div class="tags">' + tags + '</div>' + pst +
     '<div class="sty" id="sty" style="--b:' + rb + ';padding:0"></div>' +
     '<button class="btn p" id="w"></button>' +
-    (it.parts && it.parts.length ? '<div class="lbl">В наборе · ' + it.parts.length + '</div><div class="parts">' + it.parts.map(p => '<div class="part">' + (p.img ? '<img loading="lazy" src="' + esc(p.img) + '" alt="">' : "") + '<div>' + esc(p.name) + '</div></div>').join("") + '</div>' : "") +
+    (it.parts && it.parts.length ? '<div class="lbl">В наборе · ' + it.parts.length + '</div><div class="parts row">' + it.parts.map(p => { const c = catById(p.id);
+      return '<button class="part"' + (c ? ' data-id="' + esc(c.id) + '" style="--c1:' + c.c1 + ';--c2:' + c.c2 + '"' : "") + '>' + (p.img || (c && c.i) ? '<img loading="lazy" src="' + esc(p.img || c.i) + '" alt="">' : "") + '<div>' + esc(p.name) + '</div></button>'; }).join("") + '</div>' : "") +
     (inB ? '<div class="lbl">Сейчас в магазине в наборе</div><button class="prow in" data-sid="' + esc(inB.id) + '"><img loading="lazy" src="' + esc(inB.th || inB.img) + '" alt=""><span class="pr-t"><b>' + esc(inB.name) + '</b><em>' + inB.price + ' В-баксов</em></span></button>' : "") +
     '<div id="ext"></div>' +
     '<details class="more"><summary>Подробнее о предмете</summary><div>' +
@@ -1252,6 +1345,16 @@ readJSON("data/shop.json?v=" + Math.floor(Date.now() / 60000), f => splash.set(3
   $("list").innerHTML = ""; const e = $("empty"); e.hidden = false; e.innerHTML = "<b>Магазин не загрузился</b>Проверь интернет и открой ещё раз.";
 });
 }
+</script>
+<script>
+// на пк колесо мыши листает ленты «в наборе» и коллекцию вбок
+document.addEventListener("wheel", e => {
+  const r = e.target.closest && e.target.closest(".parts.row");
+  if (!r || Math.abs(e.deltaY) <= Math.abs(e.deltaX) || r.scrollWidth <= r.clientWidth) return;
+  const max = r.scrollWidth - r.clientWidth;
+  if ((e.deltaY > 0 && r.scrollLeft >= max - 1) || (e.deltaY < 0 && r.scrollLeft <= 0)) return;
+  r.scrollLeft += e.deltaY; e.preventDefault();
+}, { passive: false });
 </script>
 </body>
 </html>
